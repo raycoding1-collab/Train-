@@ -56,6 +56,19 @@ Other options: `--frame N`, `--frames A B`, `--sun-az/--sun-el` (compass degrees
 Rendering uses Cycles on the CPU with OpenImageDenoise, so it works headless without a GPU.
 `--engine EEVEE` is available but needs a GPU/display.
 
+## Gallery
+1920x1080, Cycles 40 samples + OpenImageDenoise, ~3-7 min per frame on 4 CPU cores.
+
+| Day | Dusk |
+|---|---|
+| ![](renders/CAM_Aerial_day.jpg) | ![](renders/CAM_Aerial_dusk.jpg) |
+| ![](renders/CAM_Plaza_day.jpg) | ![](renders/CAM_Plaza_dusk.jpg) |
+| ![](renders/CAM_Valley_day.jpg) | ![](renders/CAM_Valley_dusk.jpg) |
+| ![](renders/CAM_Platform_day.jpg) | ![](renders/CAM_Platform_dusk.jpg) |
+| ![](renders/CAM_Roof_day.jpg) | ![](renders/CAM_Roof_dusk.jpg) |
+| ![](renders/CAM_TrailUp_day.jpg) | ![](renders/CAM_TrailUp_dusk.jpg) |
+| ![](renders/CAM_Fly_day.jpg) | ![](renders/CAM_Fly_dusk.jpg) |
+
 ## Files
 - `build_station.py` - the procedural model (geometry, materials, scatters, trains, cameras, world, compositor)
 - `station_modes.py` - day/dusk lighting presets, shared by the build and render scripts
