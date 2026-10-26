@@ -165,7 +165,10 @@ def mesh_record(pack, name, material, P, N, C=None, UV=None, idx=None, **extra):
 
 def extract(ob, dg, local=False, keep_faces=None):
     """Evaluated triangles of an object grouped by material: {material: (P, N, C or None, I)} in three.js space."""
-    ev = ob.evaluated_get(dg)
+    try:
+        ev = ob.evaluated_get(dg)
+    except Exception:            # library objects outside the view layer: use the mesh as stored
+        ev = ob
     me = ev.to_mesh()
     me.calc_loop_triangles()
     nt = len(me.loop_triangles)
@@ -476,6 +479,9 @@ def export_vegetation(pack, dg, scene):
                 if trunk:
                     recs.append(flat_normals_record(pack, f"{name}:{detail}:trunk", "Bark", *trunk))
             protos.setdefault(name, {})[detail] = recs
+        # hero detail: the very mesh the Cycles renders use, for plants close to the viewer
+        protos[name]["hero"] = [mesh_record(pack, f"{name}:hero:{mat}", mat, P, N, C, None, I)
+                                for mat, (P, N, C, I) in extract(ob, dg, local=True).items()]
 
     crown = {}
     for name, ob in lib.items():

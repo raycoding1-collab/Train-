@@ -507,9 +507,9 @@ const mediaBase = await window.__evsGallery.media();
 
 // ---------------------------------------------------------------- detail presets (automatic by default; a resolution governor keeps motion smooth)
 const QUALITY = {
-  fast: { pixelRatio: 1.0, minScale: 0.5, shadows: 0, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 2, grass: 100, grassKeep: 3 },
-  balanced: { pixelRatio: 1.25, minScale: 0.55, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 1, grass: 170, grassKeep: 1 },
-  ultra: { pixelRatio: 2.0, minScale: 0.6, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 1, grass: 300, grassKeep: 1 },
+  fast: { hero: 45, pixelRatio: 1.0, minScale: 0.5, shadows: 0, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 2, grass: 100, grassKeep: 3 },
+  balanced: { hero: 80, pixelRatio: 1.25, minScale: 0.55, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 1, grass: 170, grassKeep: 1 },
+  ultra: { hero: 140, pixelRatio: 2.0, minScale: 0.6, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 1, grass: 300, grassKeep: 1 },
 };
 let quality = IS_TOUCH ? 'fast' : 'balanced';
 let auto = true;
@@ -870,7 +870,7 @@ function addPool(g) {
 }
 
 // ---------------------------------------------------------------- vegetation: GPU instances in 160 m cells, two levels of detail
-const CELL = 160, FAR_CELL = 480;                  // near detail in small cells, far detail in big ones: few draw calls
+const FAR_CELL = 480;                              // far detail in big static batches: few draw calls
 let cells = [];
 const vegGeo = new Map(), vegMats = new Map();
 function vegMaterial(key) {
@@ -899,62 +899,112 @@ function plantGeometry(proto, lod) {
   vegGeo.set(key, g);
   return g;
 }
-function ranges(group) {
-  const Q = QUALITY[quality];
+function ranges(group) {             // distance limits of the hero (the render mesh), near and far detail levels
+  const Q = QUALITY[quality], H = Q.hero;
   switch (group) {
-    case 'Conifers': return [Q.nearTree * 0.4, Q.conifer];
-    case 'Forest': return [Q.nearTree, Q.forest];
-    case 'Grove': case 'Placed': return [1e9, 1e9];
-    case 'Understory': return [Q.under * 0.3, Q.under];
-    case 'RoofGarden': return [150, 500];
-    case 'Rocks': return [100, 450];
-    default: return [Q.grass * 0.6, Q.grass];         // lawns and meadows
+    case 'Conifers': return [H, H, Q.conifer];
+    case 'Forest': return [H, Q.nearTree, Q.forest];
+    case 'Grove': case 'Placed': return [Math.max(H, 220), 1e9, 1e9];
+    case 'Understory': return [H * 0.6, Q.under * 0.5, Q.under];
+    case 'RoofGarden': return [Math.min(H, 40), 150, 500];
+    case 'Rocks': return [H * 0.6, 100, 450];
+    default: return [Math.min(H, 45), Q.grass * 0.6, Q.grass];         // lawns and meadows
   }
 }
+// Hero and near plants are picked per plant around the viewer (one draw call per kind); far plants sit in big static batches.
+const LODS = ['hero', 'near', 'far'], BUCKET = 48;
+let dyn = [];
+const bucketKey = (x, z) => (Math.floor(x / BUCKET) + 1000) * 4096 + Math.floor(z / BUCKET) + 1000;
+function makeDynamic(c, geo) {
+  const n = c.idx.length, mats = new Float32Array(n * 16), cols = new Float32Array(n * 3), pos = new Float32Array(n * 3), buckets = new Map();
+  c.idx.forEach((i, k) => {
+    const o = i * 6;
+    p.set(c.data[o], c.data[o + 1], c.data[o + 2]); q.setFromAxisAngle(up, c.data[o + 3]); sc.setScalar(c.data[o + 4]);
+    M.compose(p, q, sc).toArray(mats, k * 16);
+    cols.fill(0.82 + 0.36 * c.data[o + 5], k * 3, k * 3 + 3);
+    pos.set([p.x, p.y, p.z], k * 3);
+    const key = bucketKey(p.x, p.z);
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(k);
+  });
+  const cap = Math.min(n, c.lod === 'hero' ? 3000 : 12000);
+  const mesh = new THREE.InstancedMesh(geo, c.mat, cap);
+  mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
+  mesh.count = 0; mesh.frustumCulled = false; mesh.visible = false;
+  return { mesh, mats, cols, pos, buckets, cap, lo: c.lo, hi: c.hi };
+}
+function refreshDynamic(cp) {
+  for (const d of dyn) {
+    const r = d.hi * 1.08, rlo = d.lo * 0.92, im = d.mesh.instanceMatrix.array, ic = d.mesh.instanceColor.array;
+    let n = 0;
+    const bx0 = Math.floor((cp.x - r) / BUCKET), bx1 = Math.floor((cp.x + r) / BUCKET), bz0 = Math.floor((cp.z - r) / BUCKET), bz1 = Math.floor((cp.z + r) / BUCKET);
+    for (let bx = bx0; bx <= bx1 && n < d.cap; bx++) for (let bz = bz0; bz <= bz1 && n < d.cap; bz++) {
+      const list = d.buckets.get((bx + 1000) * 4096 + bz + 1000);
+      if (!list) continue;
+      for (const k of list) {
+        const dist = Math.hypot(d.pos[k * 3] - cp.x, d.pos[k * 3 + 1] - cp.y, d.pos[k * 3 + 2] - cp.z);
+        if (dist >= r || dist <= rlo) continue;
+        im.set(d.mats.subarray(k * 16, k * 16 + 16), n * 16); ic.set(d.cols.subarray(k * 3, k * 3 + 3), n * 3);
+        if (++n >= d.cap) break;
+      }
+    }
+    d.mesh.count = n; d.mesh.visible = n > 0;
+    d.mesh.instanceMatrix.clearUpdateRanges(); d.mesh.instanceMatrix.addUpdateRange(0, n * 16); d.mesh.instanceMatrix.needsUpdate = true;
+    d.mesh.instanceColor.clearUpdateRanges(); d.mesh.instanceColor.addUpdateRange(0, n * 3); d.mesh.instanceColor.needsUpdate = true;
+  }
+}
+const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3(), p = new THREE.Vector3(), M = new THREE.Matrix4();
 function buildPlants() {
-  plants.clear(); cells = [];
+  plants.clear(); cells = []; dyn = [];
   const Q = QUALITY[quality];
-  const byCell = new Map();
+  const byCell = new Map(), groups = [];
   for (const grp of manifest.instances) {
     const data = new Float32Array(bufs[grp.file], grp.data, grp.count * 6);
-    const g = grp.group, [near, far] = ranges(g), lods = manifest.prototypes[grp.proto];
+    const g = grp.group, B = [0, ...ranges(g)], lods = manifest.prototypes[grp.proto];
+    const has = (k) => k < 3 && lods[LODS[k]] && lods[LODS[k]].length;
     const keep = g === 'Understory' ? Q.underKeep : (g === 'LawnGrass' || g === 'Meadow') ? Q.grassKeep : 1;
-    for (const lod of ['near', 'far']) {
-      if (!lods[lod].length) continue;
-      const lo = lod === 'near' ? 0 : near, hi = lod === 'near' && lods.far.length ? near : far;
+    for (let k = 0; k < 3; k++) {
+      if (!has(k)) continue;
+      let k2 = k + 1; while (k2 < 3 && !has(k2)) k2++;
+      const lo = B[k], hi = B[k2], lod = LODS[k];
       if (hi <= lo) continue;
-      const size = lod === 'near' ? CELL : FAR_CELL;
       const mat = vegMaterial(`${g}:${lod}`);
       mat.userData.lod.value.set(lo, hi);
+      if (lod !== 'far') {
+        const idx = [];
+        for (let i = 0; i < grp.count; i += keep) idx.push(i);
+        groups.push({ g, proto: grp.proto, lod, data, mat, idx, lo, hi });
+        continue;
+      }
       for (let i = 0; i < grp.count; i += keep) {
         const x = data[i * 6], z = data[i * 6 + 2];
         if (Math.hypot(x, z) > hi + 600) continue;      // never in range from anywhere near the station
-        const ci = Math.floor(x / size), cj = Math.floor(z / size), key = `${lod}|${grp.proto}|${grp.data}|${ci},${cj}`;
+        const ci = Math.floor(x / FAR_CELL), cj = Math.floor(z / FAR_CELL), key = `${grp.proto}|${grp.data}|${ci},${cj}`;
         let c = byCell.get(key);
-        if (!c) byCell.set(key, c = { g, proto: grp.proto, lod, data, mat, idx: [], x: (ci + 0.5) * size, z: (cj + 0.5) * size, r: size * 0.72, lo, hi });
+        if (!c) byCell.set(key, c = { g, proto: grp.proto, lod, data, mat, idx: [], x: (ci + 0.5) * FAR_CELL, z: (cj + 0.5) * FAR_CELL, r: FAR_CELL * 0.72, lo, hi });
         c.idx.push(i);
       }
     }
   }
-  const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3(), M = new THREE.Matrix4(), col = new THREE.Color();
+  const style = (mesh, c) => {
+    mesh.receiveShadow = true;
+    mesh.castShadow = c.lod === 'hero' && (c.g === 'Grove' || c.g === 'Placed');      // the render-mesh leaves cast real dappled shade
+    if (c.g !== 'Placed' && c.g !== 'RoofGarden') mesh.layers.set(1);                  // kept out of the pool reflection
+    plants.add(mesh);
+  };
+  for (const c of groups) { const d = makeDynamic(c, plantGeometry(c.proto, c.lod)); style(d.mesh, c); dyn.push(d); }
+  const col = new THREE.Color();
   for (const c of byCell.values()) {
     const mesh = new THREE.InstancedMesh(plantGeometry(c.proto, c.lod), c.mat, c.idx.length);
     c.idx.forEach((i, k) => {
       const o = i * 6;
-      p.set(c.data[o], c.data[o + 1], c.data[o + 2]);
-      q.setFromAxisAngle(up, c.data[o + 3]);
-      s.setScalar(c.data[o + 4]);
-      M.compose(p, q, s); mesh.setMatrixAt(k, M);
+      p.set(c.data[o], c.data[o + 1], c.data[o + 2]); q.setFromAxisAngle(up, c.data[o + 3]); sc.setScalar(c.data[o + 4]);
+      M.compose(p, q, sc); mesh.setMatrixAt(k, M);
       col.setScalar(0.82 + 0.36 * c.data[o + 5]); mesh.setColorAt(k, col);
     });
-    mesh.computeBoundingSphere();
-    mesh.matrixAutoUpdate = false;
-    mesh.receiveShadow = true;
-    mesh.castShadow = c.lod === 'near' && (c.g === 'Grove' || c.g === 'Placed');
-    if (mesh.castShadow) mesh.customDepthMaterial = VEG_DEPTH;      // dappled shadows through the leaf clusters
-    if (c.g !== 'Grove' && c.g !== 'Placed' && c.g !== 'RoofGarden') mesh.layers.set(1);   // kept out of the pool reflection
-    mesh.visible = false;
-    plants.add(mesh);
+    mesh.computeBoundingSphere(); mesh.matrixAutoUpdate = false; mesh.visible = false;
+    style(mesh, c);
     cells.push({ mesh, x: c.x, z: c.z, r: c.r, lo: c.lo, hi: c.hi });
   }
   lastCellUpdate.set(1e9, 0, 0);
@@ -962,8 +1012,9 @@ function buildPlants() {
 const lastCellUpdate = new THREE.Vector3(1e9, 0, 0);
 function updateCells(force = false) {
   const c = camera.position;
-  if (!force && c.distanceTo(lastCellUpdate) < 8) return;
+  if (!force && c.distanceTo(lastCellUpdate) < 4) return;
   lastCellUpdate.copy(c);
+  refreshDynamic(c);
   for (const cell of cells) {          // a batch is drawn only if some of its plants can fall inside its distance band
     const dxz = Math.hypot(cell.x - c.x, cell.z - c.z);
     const dMin = Math.hypot(Math.max(0, dxz - cell.r), Math.max(0, c.y - 40)), dMax = Math.hypot(dxz + cell.r, c.y);
@@ -1103,7 +1154,7 @@ function setTimeOfDay(s, settle = true) {
   renderer.toneMappingExposure = mix(DAY.exposure, DUSK.exposure, s);
   const lights = smooth(0.45, 0.9, s);
   for (const [mat, k] of glow) mat.emissiveIntensity = lights * k;
-  bloom.strength = 0.45 * smooth(0.55, 1, s); bloom.threshold = 1.0; bloom.enabled = bloom.strength > 0.01;
+  bloom.strength = 0.45 * smooth(0.55, 1, s); bloom.threshold = 4.0; bloom.enabled = bloom.strength > 0.01;
   placeShafts();
   const minutes = Math.round(mix(14 * 60 + 30, 19 * 60 + 12, s));
   $('clock').textContent = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
