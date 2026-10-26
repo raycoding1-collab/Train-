@@ -648,13 +648,13 @@ const glow = [];
 function lit(o, color, strength) { const m = std({ ...o, emissive: new THREE.Color(color), emissiveIntensity: 0 }); glow.push([m, strength]); return m; }
 const MAT = {
   Timber: std({ color: 0xa98a6a, roughness: 0.62, map: tex.wood }),
-  SteelWhite: std({ color: 0xc9ccc8, roughness: 0.36, metalness: 0.1 }),
+  SteelWhite: std({ color: 0xbcbfbb, roughness: 0.38, metalness: 0.1 }),
   SteelDark: std({ color: 0x1c1f22, roughness: 0.4, metalness: 0.7 }),
   Mullion: std({ color: 0x2a2d31, roughness: 0.35, metalness: 0.8 }),
   Corten: std({ color: 0x6b3216, roughness: 0.8 }),
   Glass: std({ color: 0xd6efe9, roughness: 0.04, transparent: true, opacity: 0.2, depthWrite: false, envMapIntensity: 1.6 }),
   SolarGlass: std({ color: 0xffffff, map: tex.pv, roughness: 0.18, metalness: 0.3, transparent: true, depthWrite: false }),
-  Concrete: std({ color: 0x9e9b94, roughness: 0.82, map: tex.noise }),
+  Concrete: std({ color: 0x8e8b85, roughness: 0.84, map: tex.noise }),
   ConcreteDark: std({ color: 0x84837f, roughness: 0.85, map: tex.noise }),
   Paving: std({ color: 0x8f8a83, roughness: 0.55, map: tex.paving }),
   Terrazzo: std({ color: 0x9a9893, roughness: 0.28, map: tex.terrazzo }),
@@ -759,6 +759,10 @@ const waterNormals = (() => {                       // tileable ripple normals f
   return t;
 })();
 MAT.StreamWater.normalMap = waterNormals; MAT.StreamWater.normalScale.set(0.28, 0.28);
+MAT.StreamWater.onBeforeCompile = (sh) => {      // ripples fade out with distance: no moire on far water
+  sh.fragmentShader = sh.fragmentShader.replace('#include <normal_fragment_maps>',
+    '#include <normal_fragment_maps>\n  normal = normalize(mix(nonPerturbedNormal, normal, smoothstep(110.0, 18.0, length(vViewPosition))));');
+};
 const cloudU = { value: 0 };
 const CLOUD_GLSL = `uniform float uWind, uCloud;
   float ch(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -1422,7 +1426,7 @@ function stepRide() {
   const tr = trains[0].position;
   $('fade').classList.toggle('on', tr.x > 1010);       // dip to dark as the train loops back to the far end of the line
   player.pos.set(tr.x + ride.nose, tr.y + ride.top - EYE, tr.z + ride.cz);
-  warpAmt = 0.12;
+  warpAmt = 0.07;
 }
 $('ride-btn').addEventListener('click', startRide);
 
