@@ -621,7 +621,8 @@ def build_materials():
     pebble = node(nt, "ShaderNodeTexVoronoi", {"Vector": co, "Scale": 6.0})
     bedf = out(node(nt, "ShaderNodeAttribute", {}, attribute_name="bed"), "Fac")
     soil = node(nt, "ShaderNodeMix", {"Factor": bedf, "A": out(soil, "Result"),
-                                      "B": ramp(nt, out(pebble, "Distance"), [(0.0, (0.2, 0.17, 0.13)), (0.5, (0.42, 0.37, 0.3))])},
+                                      "B": ramp(nt, out(pebble, "Distance"),
+                                                [(0.0, (0.2, 0.17, 0.13)), (0.5, (0.42, 0.37, 0.3))])},
                 data_type="RGBA")
     rockf = smooth_fac(nt, slope, 0.32, 0.5)
     rock = node(nt, "ShaderNodeMix", {"Factor": rockf, "A": out(soil, "Result"),
@@ -689,8 +690,9 @@ def build_materials():
     m, nt, p, o = principled("TrainWindow", (0.01, 0.012, 0.015), 0.05, 0.0, **{"Coat Weight": 1.0,
                                                                               "Emission Color": (1.0, 0.82, 0.6)})
     nt.links.new(math_node(nt, "MULTIPLY", lights_value(nt), 7.0), p.inputs["Emission Strength"])
-    m, nt, p, o = principled("Headlight", (0.9, 0.9, 0.9), 0.1, 0.0, **{"Emission Color": (1.0, 0.95, 0.85)})
-    nt.links.new(math_node(nt, "MULTIPLY_ADD", lights_value(nt), 25.0, 2.0), p.inputs["Emission Strength"])
+    m, nt, p, o = principled("Headlight", (0.04, 0.045, 0.05), 0.05, 0.0, **{"Coat Weight": 1.0,
+                                                                          "Emission Color": (1.0, 0.95, 0.85)})
+    nt.links.new(math_node(nt, "MULTIPLY", lights_value(nt), 25.0), p.inputs["Emission Strength"])
 
     # architectural lighting (off by day)
     for name, color, k in (("LED", (1.0, 0.72, 0.42), 14.0), ("NodeLight", (1.0, 0.78, 0.5), 45.0),
@@ -742,6 +744,7 @@ def leaf_cards(rng, centers, normals, size, aspect=0.55, droop=0.18, spread=0.45
 
 
 def tree_broadleaf(seed, height, crown_r, crown_h, n_blobs, r0, leaf=0.42, dens=7.0, flat=0.0):
+    """Broadleaf tree whose crown is many overlapping leaf clusters filling an ellipsoid (reads as one mass)."""
     rng = np.random.default_rng(seed)
     mb = MeshBuilder()
     top_z = height - crown_h * 0.5
@@ -752,28 +755,30 @@ def tree_broadleaf(seed, height, crown_r, crown_h, n_blobs, r0, leaf=0.42, dens=
     R = r0 * (1 - 0.55 * q) * (1 + 0.6 * np.exp(-np.maximum(zs, 0) * 2.5))
     mb.add(*tube(P, R, 10), mat=M["Bark"], smooth=True)
     cz = height - crown_h * 0.5
-    d = norm(rng.normal(0, 1, (n_blobs, 3)))
-    d[:, 2] = d[:, 2] * (0.75 - 0.6 * flat) + 0.15
-    d[0] = (0, 0, 0.9)
-    C = np.c_[lean[0] + d[:, 0] * crown_r * 0.55 * rng.uniform(0.6, 1.0, n_blobs),
-              lean[1] + d[:, 1] * crown_r * 0.55 * rng.uniform(0.6, 1.0, n_blobs),
-              cz + d[:, 2] * crown_h * 0.33]
-    RB = crown_r * rng.uniform(0.42, 0.6, n_blobs) * np.where(np.arange(n_blobs) == 0, 0.9, 1.0)
+    nb = int(n_blobs * 1.8)
+    u = norm(rng.normal(0, 1, (nb, 3)))
+    rad = np.sqrt(rng.uniform(0.3, 1.0, nb))
+    hz = crown_h * 0.5 * (1 - 0.35 * flat)
+    C = np.c_[lean[0] + u[:, 0] * rad * crown_r * 0.68, lean[1] + u[:, 1] * rad * crown_r * 0.68,
+              cz + u[:, 2] * rad * hz * 0.62]
+    C[0] = (lean[0], lean[1], height - crown_h * 0.28)
+    RB = crown_r * rng.uniform(0.3, 0.45, nb)
+    Vi, Fi = ico(2)
     for c, rb in zip(C, RB):
-        k = rng.integers(5, 9)
-        start = P[k] if k < len(P) else P[-1]
+        k = int(rng.integers(5, 9))
+        start = P[min(k, len(P) - 1)]
         end = start + (c - start) * 0.85
         L = np.linalg.norm(end - start)
         path = bezier(start, end, start + np.array([0, 0, L * 0.35]), end - (end - start) * 0.3, 7)
-        mb.add(*tube(path, np.linspace(R[k if k < len(R) else -1] * 0.75, r0 * 0.12, 7), 6), mat=M["Bark"], smooth=True)
-        V, F = ico(2)
-        disp = 1 + 0.18 * np.sin(V @ rng.normal(0, 3.0, 3)) * np.sin(V @ rng.normal(0, 3.0, 3))
-        mb.add(c + V * disp[:, None] * rb * 0.8 * np.array([1, 1, 0.85]), F, mat=M["LeafCore"], smooth=True)
+        mb.add(*tube(path, np.linspace(R[min(k, len(R) - 1)] * 0.6, r0 * 0.1, 7), 6), mat=M["Bark"], smooth=True)
+        disp = 1 + 0.18 * np.sin(Vi @ rng.normal(0, 3.0, 3)) * np.sin(Vi @ rng.normal(0, 3.0, 3))
+        mb.add(c + Vi * disp[:, None] * rb * 0.8 * np.array([1, 1, 0.85]), Fi, mat=M["LeafCore"], smooth=True)
         n = int(4 * np.pi * rb * rb * dens)
         dirs = norm(rng.normal(0, 1, (n, 3)))
-        dirs = dirs[dirs[:, 2] > -0.65]
-        pts = c + dirs * rb * rng.uniform(0.82, 1.08, (len(dirs), 1)) * np.array([1, 1, 0.85])
-        V, F, lv = leaf_cards(rng, pts, dirs + np.array([0, 0, 0.5]), leaf)
+        dirs = dirs[dirs[:, 2] > -0.7]
+        pts = c + dirs * rb * rng.uniform(0.8, 1.15, (len(dirs), 1)) * np.array([1, 1, 0.85])
+        outward = norm(pts - [lean[0], lean[1], cz])
+        V, F, lv = leaf_cards(rng, pts, dirs + outward * 0.6 + np.array([0, 0, 0.45]), leaf)
         mb.add(V, F, mat=M["Leaf"], lv=lv)
     return mb
 
@@ -924,13 +929,13 @@ def build_library():
         P[name] = ob
         return ob
 
-    put("Forest", "TreeA", tree_broadleaf(1, 15.0, 5.0, 8.0, 9, 0.36))
-    put("Forest", "TreeB", tree_broadleaf(2, 11.0, 3.8, 6.5, 7, 0.28))
-    put("Forest", "TreeC", tree_broadleaf(3, 18.0, 4.2, 9.5, 9, 0.38))
-    put("Forest", "TreeD", tree_broadleaf(4, 9.5, 3.4, 5.2, 6, 0.24, flat=0.4))
-    put("Grove", "GroveA", tree_broadleaf(5, 11.0, 4.0, 7.0, 10, 0.27))
-    put("Grove", "GroveB", tree_broadleaf(6, 8.5, 3.6, 5.4, 9, 0.23, flat=0.5))
-    put("Grove", "GroveC", tree_broadleaf(7, 12.5, 3.3, 8.5, 10, 0.24))
+    put("Forest", "TreeA", tree_broadleaf(1, 15.0, 5.6, 10.5, 9, 0.36))
+    put("Forest", "TreeB", tree_broadleaf(2, 11.0, 4.3, 7.8, 7, 0.28))
+    put("Forest", "TreeC", tree_broadleaf(3, 18.0, 5.0, 12.5, 9, 0.38))
+    put("Forest", "TreeD", tree_broadleaf(4, 9.5, 4.0, 6.5, 6, 0.24, flat=0.4))
+    put("Grove", "GroveA", tree_broadleaf(5, 11.0, 4.4, 8.2, 10, 0.27))
+    put("Grove", "GroveB", tree_broadleaf(6, 8.5, 4.0, 6.2, 9, 0.23, flat=0.5))
+    put("Grove", "GroveC", tree_broadleaf(7, 12.5, 3.9, 9.6, 10, 0.24))
     put("Conifer", "PineA", tree_conifer(8, 20.0, 3.6))
     put("Conifer", "PineB", tree_conifer(9, 14.0, 2.8))
     put("Under", "ShrubA", shrub(10, 1.6, 1.3))
@@ -1011,17 +1016,19 @@ def build_terrain(coll):
     xs, ys = XX[sel], YY[sel]
     clear = np.ones_like(xs)
     for path in walk_paths():
-        clear *= smoothstep(4.5, 6.5, dist_polyline_xy(xs, ys, path))
+        clear *= smoothstep(6.0, 8.0, dist_polyline_xy(xs, ys, path))
     for cx, cy in VALLEY_COLS + [TOWER, LOOKOUT[:2]]:
         clear *= smoothstep(3.5, 5.0, np.hypot(xs - cx, ys - cy))
     for cx, cy in EMERGENT:
         clear *= smoothstep(6.0, 8.0, np.hypot(xs - cx, ys - cy))
     clear *= smoothstep(BRIDGE_X + 3, BRIDGE_X + 5, np.abs(xs))
-    clear *= smoothstep(8.0, 10.0, d[sel]) * trail_clear[sel] * smoothstep(19.0, 17.0, np.abs(ys))
+    clear *= smoothstep(9.5, 11.5, d[sel]) * trail_clear[sel] * smoothstep(19.0, 17.0, np.abs(ys))
     grove[sel] = clear
     under = (1 - terr) * smoothstep(4.3, 6.0, d) * np.where(np.abs(XX) < 430, smoothstep(1.3, 2.2, np.abs(YY - trail_y(XX))), 1)
     under *= (1 - smoothstep(45, 70, ay)) * (1 - smoothstep(300, 420, np.abs(XX))) * guide_clear
     rocks = smoothstep(2.6, 3.4, d) * (1 - smoothstep(6.0, 8.5, d)) * (1 - terr) * (np.abs(XX) < 600)
+    deck_zone = box_mask(XX, ay, -114, 114, 24.0, 64.0, 2.0)     # platforms and terraces: nothing grows through
+    under *= 1 - deck_zone
     conifer *= (ay < 700) * (np.abs(XX) < 1300)
     wet = 1 - smoothstep(3.0, 10.0, d)
     bed = 1 - smoothstep(2.8, 4.2, d)
@@ -1384,7 +1391,8 @@ def build_bridge_and_walks(coll, leds):
     th = np.linspace(0, 2 * np.pi, 64, endpoint=False)
     ring = np.c_[lx + 5.0 * np.cos(th), ly + 5.0 * np.sin(th), np.full(64, lz + 1.1)]
     mb.add(*sweep(ring, [(-0.04, -0.04), (0.04, -0.04), (0.04, 0.04), (-0.04, 0.04)], closed_path=True), mat=M["SteelWhite"])
-    glass.add(*sweep(ring - [0, 0, 1.1], [(0.0, 0.05), (0.0, 1.05), (0.02, 1.05), (0.02, 0.05)], closed_path=True), mat=M["Glass"])
+    glass.add(*sweep(ring - [0, 0, 1.1], [(0.0, 0.05), (0.0, 1.05), (0.02, 1.05), (0.02, 0.05)], closed_path=True),
+              mat=M["Glass"])
     g = float(terrain_h(lx, ly))
     mb.add(*tube([(lx, ly, g - 0.5), (lx, ly, lz - 0.3)], [0.65, 0.45], 18), mat=M["SteelWhite"], smooth=True)
     mb.build("BridgeAndWalks", coll)
@@ -1457,7 +1465,7 @@ def build_plaza(coll, P, leds):
     mb.add(water, [np.arange(n)], mat=M["PoolWater"])
     mb.add(np.c_[ring_i, np.full(n, GRADE + 0.02)], [np.arange(n)[::-1]], mat=M["Granite"])
     # sign monolith
-    mb.add(*boxes([(0, 56.0, GRADE + 0.75)], (26, 1.2, 1.5)), mat=M["Granite"])
+    mb.add(*boxes([(0, 56.0, GRADE + 1.1)], (26, 1.2, 2.2)), mat=M["Granite"])
     # lawns either side of the paved promenade, with trees and grass
     rng = np.random.default_rng(3)
     protos = [P["GroveA"], P["GroveB"], P["GroveC"], P["TreeB"], P["TreeD"]]
@@ -1503,8 +1511,8 @@ def build_plaza(coll, P, leds):
                 break
             except RuntimeError:
                 pass
-    for body, size, z, mat in (("翠谷站" if font else "EMERALD VALLEY", 0.95, GRADE + 0.62, M["SignGlow"]),
-                               ("EMERALD VALLEY STATION", 0.3, GRADE + 0.2, M["SignGlow"])):
+    for body, size, z, mat in (("翠谷站" if font else "EMERALD VALLEY", 1.25, GRADE + 0.82, M["SignGlow"]),
+                               ("EMERALD VALLEY STATION", 0.36, GRADE + 0.28, M["SignGlow"])):
         cu = bpy.data.curves.new("Sign", "FONT")
         cu.body = body
         if font:
@@ -1727,7 +1735,7 @@ def fly_path():
 def camera_specs():
     """Fixed still cameras: name -> (location, target, lens, still frame, dof)."""
     xv = 93.0
-    sv = float(stream_y(xv)) - 4.4
+    sv = float(stream_y(xv)) - 3.6
     xt = -84.0
     return {
         "CAM_Aerial": ((240, 222, 150), (-6, 2, 10), 30, 100, None),
