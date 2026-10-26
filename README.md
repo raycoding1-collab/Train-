@@ -77,17 +77,21 @@ Rendering uses Cycles on the CPU with OpenImageDenoise, so it works headless wit
 
 ## Web viewer
 ```
-blender52/bin/python export_web.py         # station.blend -> web/station.json + web/*.bin (~12 MB gzip)
+blender52/bin/python render_sprites.py     # Cycles impostors of the plants -> web/trees.png
+blender52/bin/python export_web.py         # station.blend -> web/station.json + web/*.bin (~15 MB gzip)
 python3 -m http.server 8000                # then open http://localhost:8000/web/
 ```
 The page opens on a gallery of the Cycles renders, the video and the 360° photos (no 3D
 download needed). **Walk through in 3D** loads the model into the browser (three.js, WebGL 2):
 - **Walk** with collision and gravity, or **Fly**; mouse/keyboard on laptops, touch stick on phones.
-- Glass control dock: walk/fly, a time-of-day slider from 14:30 to dusk, **Places** (glide to
+- **Ride the express** on the nose of the maglev, or sit back for the **cinematic tour**.
+- Glass control dock: walk/fly, a time-of-day slider from 14:30 through dusk to a starry night, **Places** (glide to
   viewpoints or open 360° photos), a live mini-map (click to glide there), detail settings,
   ambient sound (stream, wind, birds, crickets, passing trains; synthesised, no audio files).
-- Twelve discoveries to find; birds, butterflies, fireflies at dusk, sun shafts through the
-  oculi, swaying vegetation and rippling water.
+- Fourteen discoveries to find; birds, butterflies, fireflies at dusk, sun shafts with drifting
+  dust through the oculi, drifting clouds and their shadows, swaying vegetation, rippling water.
+- Real-time realism: plants near you are the very meshes the Cycles renders use, far trees are
+  Cycles-rendered impostors, and ambient occlusion and forest-floor shade are baked from the model.
 - Detail adapts to the device: strong machines climb to Ultra (4K shadows, ambient occlusion,
   full-resolution mirror pool), weaker ones briefly lower render resolution to stay smooth.
   The renders, video and 360° photos are full quality everywhere.
@@ -96,6 +100,7 @@ download needed). **Walk through in 3D** loads the model into the browser (three
 - `build_station.py` - the procedural model (geometry, materials, scatters, trains, cameras, world, compositor)
 - `station_modes.py` - day/dusk lighting presets, shared by the build and render scripts
 - `render.py` - command-line renderer
+- `render_sprites.py` - renders the far-tree impostor atlas (`web/trees.png`) with Cycles
 - `export_web.py` - exports the scene for the web viewer (quantized, gzip-compressed binary meshes and instances)
 - `web/` - the showcase page, exported model and 360° photos (`web/pano/`)
 - `renders/` - finished stills (`<camera>_<mode>.jpg`) and the fly-through
