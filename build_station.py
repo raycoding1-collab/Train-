@@ -663,8 +663,9 @@ def build_materials():
 
     m, nt, o = new_mat("Flower")
     fc = out(node(nt, "ShaderNodeAttribute", {}, attribute_name="fc"), "Color")
-    p = node(nt, "ShaderNodeBsdfPrincipled", {"Base Color": fc, "Roughness": 0.5, "Subsurface Weight": 0.2})
-    nt.links.new(out(p), o.inputs["Surface"])
+    p = node(nt, "ShaderNodeBsdfPrincipled", {"Base Color": fc, "Roughness": 0.45, "Sheen Weight": 0.3})
+    tr = node(nt, "ShaderNodeBsdfTranslucent", {"Color": fc})
+    nt.links.new(out(node(nt, "ShaderNodeMixShader", {0: 0.3, 1: out(p), 2: out(tr)})), o.inputs["Surface"])
 
     m, nt, p, o = principled("Rock", (0.35, 0.34, 0.31), 0.75)
     co = obj_coord(nt)
@@ -884,7 +885,7 @@ def fern(seed, n=14):
     return mb
 
 
-def grass_tuft(seed, n=34, h=0.55, flowers=0):
+def grass_tuft(seed, n=34, h=0.55):
     rng = np.random.default_rng(seed)
     mb = MeshBuilder()
     for k in range(n):
@@ -894,14 +895,61 @@ def grass_tuft(seed, n=34, h=0.55, flowers=0):
         hh = h * rng.uniform(0.6, 1.2)
         t = np.linspace(0, 1, 4)
         C = base + np.c_[np.cos(a) * lean * hh * t ** 2, np.sin(a) * lean * hh * t ** 2, hh * t]
-        side = np.array([-np.sin(a), np.cos(a), 0]) * 0.012 * (1 - t)[:, None] * 2
+        side = np.array([-np.sin(a), np.cos(a), 0]) * 0.008 * (1 - t)[:, None] * 2
         V = np.concatenate([C + side, C - side])
         F = np.stack([np.arange(3), np.arange(1, 4), 4 + np.arange(1, 4), 4 + np.arange(3)], -1)
-        mb.add(V, F, mat=M["Leaf"], lv=rng.uniform(0.5, 1.0))
-        if k < flowers:
-            Vi, Fi = ico(1)
-            col = [(0.95, 0.85, 0.2), (0.95, 0.95, 0.92), (0.55, 0.3, 0.75), (0.9, 0.45, 0.25)][k % 4]
-            mb.add(C[-1] + Vi * 0.035, Fi, mat=M["Flower"], fc=col)
+        mb.add(V, F, mat=M["Leaf"], lv=rng.uniform(0.25, 0.85))
+    return mb
+
+
+def align_z(V, up):
+    """Rotate local geometry so its +z axis points along `up`."""
+    R = np.array(Vector((0, 0, 1)).rotation_difference(Vector(up)).to_matrix())
+    return np.asarray(V, float) @ R.T
+
+
+FLOWERS = {
+    "daisy": dict(n=10, h=(0.26, 0.42), petals=13, L=0.03, W=0.008, colors=[(0.95, 0.95, 0.92)],
+                  eye=(0.95, 0.72, 0.08)),
+    "cosmos": dict(n=8, h=(0.42, 0.62), petals=8, L=0.042, W=0.024,
+                   colors=[(0.85, 0.28, 0.55), (0.96, 0.62, 0.76), (0.93, 0.9, 0.92)], eye=(0.92, 0.7, 0.12)),
+    "lavender": dict(n=18, h=(0.34, 0.52), colors=[(0.42, 0.3, 0.68), (0.5, 0.36, 0.75)]),
+}
+
+
+def flower_clump(seed, kind):
+    """A clump of flowering stems over a grassy base: real petals (daisy, cosmos) or bud spikes (lavender)."""
+    rng = np.random.default_rng(seed)
+    spec = FLOWERS[kind]
+    mb = grass_tuft(seed + 100, n=12, h=0.28)
+    for _ in range(spec["n"]):
+        a, r = rng.uniform(0, 2 * np.pi), rng.uniform(0, 0.13)
+        H = rng.uniform(*spec["h"])
+        lean = rng.normal(0, 0.12, 2)
+        t = np.linspace(0, 1, 6)
+        stem = np.c_[r * np.cos(a) + lean[0] * H * t ** 2, r * np.sin(a) + lean[1] * H * t ** 2, H * t]
+        mb.add(*tube(stem, np.linspace(0.0035, 0.0025, 6), 4, caps=False), mat=M["Leaf"], lv=0.35)
+        top, up = stem[-1], norm(stem[-1] - stem[-2] + rng.normal(0, 0.25, 3))
+        col = spec["colors"][rng.integers(len(spec["colors"]))]
+        if kind == "lavender":
+            k = np.arange(18)
+            z = -0.085 + 0.085 * k / 17
+            ang = k * 2.4
+            buds = np.c_[0.006 * np.cos(ang), 0.006 * np.sin(ang), z]
+            for b in align_z(buds, up) + top:
+                V, F = ellipsoid(b, (0.0045, 0.0045, 0.0075), 1)
+                mb.add(V, F, mat=M["Flower"], smooth=True, fc=col)
+            continue
+        n, L, W = spec["petals"], spec["L"] * rng.uniform(0.85, 1.15), spec["W"]
+        phi = np.linspace(0, 2 * np.pi, n, endpoint=False) + rng.uniform(0, 1)
+        d = np.c_[np.cos(phi), np.sin(phi), np.full(n, 0.2)]
+        side = np.c_[-np.sin(phi), np.cos(phi), np.zeros(n)]
+        sag = np.array([0, 0, 0.004])      # rounded petals: base, two shoulders each side, tip
+        petal = np.stack([d * 0.007, d * L * 0.4 + side * W * 0.5, d * L * 0.85 + side * W * 0.4 - sag, d * L - sag,
+                          d * L * 0.85 - side * W * 0.4 - sag, d * L * 0.4 - side * W * 0.5], 1)
+        mb.add(align_z(petal.reshape(-1, 3), up) + top, np.arange(6 * n).reshape(n, 6), mat=M["Flower"], fc=col)
+        V, F = ellipsoid((0, 0, 0.003), (0.0095, 0.0095, 0.006), 1)
+        mb.add(align_z(V, up) + top, F, mat=M["Flower"], smooth=True, fc=spec["eye"])
     return mb
 
 
@@ -921,7 +969,7 @@ def rock(seed):
 
 def build_library():
     lib = collection("LIB")
-    colls = {k: collection(f"LIB_{k}", lib) for k in ("Forest", "Conifer", "Grove", "Under", "Garden", "Rocks")}
+    colls = {k: collection(f"LIB_{k}", lib) for k in ("Forest", "Conifer", "Grove", "Under", "Garden", "Lawn", "Rocks")}
     P = {}
 
     def put(key, name, mb):
@@ -944,8 +992,13 @@ def build_library():
     put("Under", "FernB", fern(13, 10))
     put("Garden", "GrassA", grass_tuft(14))
     put("Garden", "GrassB", grass_tuft(15, 24, 0.8))
-    put("Garden", "Flowers", grass_tuft(16, 26, 0.45, flowers=14))
+    put("Garden", "Daisies", flower_clump(16, "daisy"))
+    put("Garden", "Cosmos", flower_clump(18, "cosmos"))
+    put("Garden", "Lavender", flower_clump(19, "lavender"))
     put("Garden", "ShrubS", shrub(17, 0.8, 0.6, leaf=0.12))
+    put("Lawn", "GrassLow", grass_tuft(24, 40, 0.3))
+    for name in ("GrassA", "GrassB", "Daisies"):
+        colls["Lawn"].objects.link(P[name])
     for i in range(3):
         put("Rocks", f"Rock{i}", rock(20 + i))
     put(None, "Emergent", tree_emergent(30))
@@ -1626,53 +1679,104 @@ def build_trains(coll):
 
 
 # =============================================================== people
-SKIN = [(0.87, 0.68, 0.55), (0.6, 0.42, 0.3), (0.95, 0.8, 0.68), (0.38, 0.25, 0.18)]
-CLOTH = [(0.85, 0.85, 0.82), (0.1, 0.12, 0.18), (0.55, 0.12, 0.1), (0.15, 0.3, 0.5), (0.75, 0.6, 0.35),
-         (0.2, 0.35, 0.22), (0.9, 0.75, 0.2), (0.3, 0.3, 0.32), (0.65, 0.4, 0.55)]
+SKIN = [(0.86, 0.66, 0.53), (0.62, 0.43, 0.31), (0.93, 0.78, 0.66), (0.4, 0.27, 0.19), (0.76, 0.56, 0.42)]
+TOPS = [(0.88, 0.88, 0.86), (0.08, 0.1, 0.16), (0.42, 0.1, 0.1), (0.2, 0.32, 0.5), (0.68, 0.58, 0.42), (0.24, 0.3, 0.2),
+        (0.72, 0.58, 0.18), (0.25, 0.25, 0.27), (0.75, 0.5, 0.55), (0.55, 0.65, 0.75), (0.05, 0.05, 0.05)]
+BOTTOMS = [(0.14, 0.2, 0.33), (0.06, 0.06, 0.07), (0.52, 0.46, 0.34), (0.3, 0.3, 0.32), (0.8, 0.79, 0.75),
+           (0.2, 0.26, 0.4)]
+HAIR = [(0.04, 0.03, 0.02), (0.015, 0.015, 0.015), (0.3, 0.18, 0.08), (0.62, 0.5, 0.3), (0.45, 0.45, 0.45),
+        (0.18, 0.1, 0.05)]
 
 
-HAIR = [(0.05, 0.035, 0.025), (0.02, 0.02, 0.02), (0.35, 0.22, 0.1), (0.6, 0.5, 0.3), (0.5, 0.5, 0.5)]
+def ellipsoid(center, radii, sub=2, keep=None):
+    """Icosphere ellipsoid; `keep(face_centroids_on_unit_sphere)` optionally selects faces (e.g. a hair cap)."""
+    V, F = ico(sub)
+    if keep is not None:
+        F = F[keep(V[F].mean(1))]
+    return np.asarray(center, float) + V * np.asarray(radii, float), F
+
+
+def loft(sections, n=16, expo=2.4, caps=True):
+    """Closed surface through horizontal superellipse sections (z, cx, cy, rx, ry), bottom to top."""
+    th = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    c, s = np.cos(th), np.sin(th)
+    ec, es = np.sign(c) * np.abs(c) ** (2 / expo), np.sign(s) * np.abs(s) ** (2 / expo)
+    V = np.concatenate([np.c_[cx + rx * ec, cy + ry * es, np.full(n, z)] for z, cx, cy, rx, ry in sections])
+    F = [grid_faces(len(sections), n, wrap_v=True)]
+    if caps:
+        F += [np.arange(n)[::-1][None], ((len(sections) - 1) * n + np.arange(n))[None]]
+    return V, F
+
+
+def human(rng):
+    """One smooth, low-poly person standing at the origin facing +y: list of (verts, faces, colour)."""
+    female = rng.random() < 0.5
+    skirt = female and rng.random() < 0.35
+    skin, hair = SKIN[rng.integers(len(SKIN))], HAIR[rng.integers(len(HAIR))]
+    top = TOPS[rng.integers(len(TOPS))]
+    bottom = TOPS[rng.integers(len(TOPS))] if skirt else BOTTOMS[rng.integers(len(BOTTOMS))]
+    shoes = [(0.05, 0.05, 0.05), (0.9, 0.9, 0.88), (0.35, 0.22, 0.12)][rng.integers(3)]
+    sleeves = rng.random() < 0.6
+    st = rng.uniform(-0.3, 0.3) if rng.random() < 0.75 else rng.uniform(-0.05, 0.05)   # walking or standing
+    parts = []
+    hipw, sh = (0.09, 0.18) if female else (0.095, 0.2)
+    feet = []
+    for side, a in ((-1, st), (1, -st)):
+        hip = np.array([side * hipw, 0.0, 0.9])
+        knee = hip + 0.44 * np.array([0, np.sin(a), -np.cos(a)])
+        a2 = a - (0.3 if a < 0 else 0.04)
+        ankle = knee + 0.42 * np.array([0, np.sin(a2), -np.cos(a2)])
+        pts = np.array([hip, (hip + knee) / 2, knee, (knee + ankle) / 2, ankle])
+        parts.append((*tube(pts, np.array([0.085, 0.074, 0.056, 0.054, 0.04]) * (0.95 if female else 1.0), 12),
+                      skin if skirt else bottom))
+        feet.append(ankle)
+        parts.append((*ellipsoid(ankle + [0, 0.05, -0.04], (0.045, 0.12, 0.042), 1), shoes))
+    lift = 0.085 - min(f[2] for f in feet)
+    if female:
+        torso = [(0.86, 0, 0, 0.17, 0.105), (0.98, 0, 0, 0.16, 0.1), (1.08, 0, 0.005, 0.13, 0.09),
+                 (1.22, 0, 0.01, 0.155, 0.11), (1.33, 0, 0.0, 0.17, 0.1), (1.41, 0, -0.01, 0.175, 0.09),
+                 (1.46, 0, -0.01, 0.13, 0.075), (1.49, 0, -0.01, 0.06, 0.055)]
+    else:
+        torso = [(0.86, 0, 0, 0.165, 0.105), (0.98, 0, 0, 0.155, 0.1), (1.08, 0, 0.005, 0.15, 0.1),
+                 (1.22, 0, 0.01, 0.17, 0.11), (1.34, 0, 0.0, 0.19, 0.105), (1.42, 0, -0.01, 0.2, 0.095),
+                 (1.47, 0, -0.01, 0.14, 0.08), (1.5, 0, -0.01, 0.065, 0.06)]
+    parts.append((*loft(torso), top))
+    if skirt:
+        parts.append((*loft([(0.52, 0, 0.01, 0.25, 0.21), (0.8, 0, 0, 0.2, 0.15), (1.02, 0, 0, 0.14, 0.095)], caps=False),
+                      bottom))
+    parts.append((*tube([(0, -0.005, 1.46), (0, 0.005, 1.6)], 0.047, 10), skin))
+    parts.append((*ellipsoid((0, 0.012, 1.685), (0.08, 0.095, 0.112)), skin))
+    long_hair = female and rng.random() < 0.7
+    parts.append((*ellipsoid((0, -0.004, 1.7), (0.087, 0.101, 0.112),
+                             keep=lambda c: (c[:, 2] > 0.4) | ((c[:, 1] < 0.15) & (c[:, 2] > -0.45))), hair))
+    if long_hair:
+        parts.append((*ellipsoid((0, -0.055, 1.6), (0.085, 0.055, 0.15)), hair))
+    for side, b in ((-1, -st * 0.8), (1, st * 0.8)):
+        shoulder = np.array([side * sh, 0.0, 1.405])
+        d1 = norm(np.array([side * 0.12, np.sin(b), -np.cos(b)]))
+        elbow = shoulder + 0.28 * d1
+        b2 = b + 0.25
+        wrist = elbow + 0.25 * norm(np.array([side * 0.04, np.sin(b2), -np.cos(b2)]))
+        parts.append((*tube([shoulder, (shoulder + elbow) / 2, elbow], [0.05, 0.046, 0.042], 10), top))
+        parts.append((*tube([elbow, (elbow + wrist) / 2, wrist], [0.041, 0.038, 0.032], 10), top if sleeves else skin))
+        parts.append((*ellipsoid(wrist + norm(wrist - elbow) * 0.06, (0.028, 0.04, 0.065), 1), skin))
+    if rng.random() < 0.25:      # backpack
+        bag = [(0.1, 0.1, 0.11), (0.25, 0.3, 0.2), (0.4, 0.15, 0.1)][rng.integers(3)]
+        parts.append((*ellipsoid((0, -0.17, 1.2), (0.14, 0.075, 0.2)), bag))
+    return [(V + [0, 0, lift], F, col) for V, F, col in parts]
 
 
 def build_people(coll, spots, seed=9):
     rng = np.random.default_rng(seed)
     mb = MeshBuilder()
-    Vi, Fi = ico(2)
     for (x, y, z) in spots:
-        h = rng.uniform(0.9, 1.08)
+        h = rng.uniform(0.92, 1.06)
         rot = rng.uniform(0, 2 * np.pi)
-        shirt, pants = CLOTH[rng.integers(len(CLOTH))], CLOTH[rng.integers(len(CLOTH))]
-        skin, hair = SKIN[rng.integers(len(SKIN))], HAIR[rng.integers(len(HAIR))]
-        st = rng.uniform(-0.14, 0.14)        # stride: legs and arms swing in opposition
-        parts = [  # centre, size, colour, top taper
-            ((-0.09, st + 0.03, 0.04), (0.11, 0.26, 0.08), (0.05, 0.05, 0.05), 1.0),
-            ((0.09, -st + 0.03, 0.04), (0.11, 0.26, 0.08), (0.05, 0.05, 0.05), 1.0),
-            ((-0.09, st * 0.5, 0.47), (0.12, 0.14, 0.8), pants, 1.2),
-            ((0.09, -st * 0.5, 0.47), (0.12, 0.14, 0.8), pants, 1.2),
-            ((0.0, 0.0, 0.93), (0.33, 0.19, 0.2), pants, 1.0),
-            ((0.0, 0.0, 1.25), (0.3, 0.19, 0.5), shirt, 1.3),
-            ((-0.235, -st * 0.6, 1.14), (0.08, 0.09, 0.58), shirt, 1.1),
-            ((0.235, st * 0.6, 1.14), (0.08, 0.09, 0.58), shirt, 1.1),
-            ((-0.24, -st * 0.9, 0.81), (0.065, 0.07, 0.1), skin, 1.0),
-            ((0.24, st * 0.9, 0.81), (0.065, 0.07, 0.1), skin, 1.0),
-            ((0.0, 0.0, 1.53), (0.09, 0.09, 0.08), skin, 1.0),
-        ]
-        C = np.array([p[0] for p in parts]) * h
-        S = np.array([p[1] for p in parts]) * h
-        V, F = boxes(C, S)
-        V = V.reshape(len(parts), 8, 3)
-        taper = np.array([p[3] for p in parts])[:, None]
-        V[:, 4:, :2] = C[:, None, :2] + (V[:, 4:, :2] - C[:, None, :2]) * taper[:, None]
-        head = Vi * np.array([0.1, 0.11, 0.12]) * h + np.array([0, 0.01, 1.66]) * h
-        hair_v = Vi * np.array([0.108, 0.118, 0.11]) * h + np.array([0, -0.012, 1.69]) * h
-        allv = np.concatenate([V.reshape(-1, 3), head, hair_v])
         cr, sr = np.cos(rot), np.sin(rot)
-        allv = np.c_[allv[:, 0] * cr - allv[:, 1] * sr + x, allv[:, 0] * sr + allv[:, 1] * cr + y, allv[:, 2] + z]
-        nb = len(parts) * 8
-        cols = np.repeat(np.array([p[2] for p in parts]), 6, 0)
-        mb.add(allv[:nb], F, mat=M["People"], pcol=cols)
-        mb.add(allv[nb:nb + len(Vi)], Fi, mat=M["People"], smooth=True, pcol=skin)
-        mb.add(allv[nb + len(Vi):], Fi, mat=M["People"], smooth=True, pcol=hair)
+        for V, F, col in human(rng):
+            V = V * h
+            V = np.c_[V[:, 0] * cr - V[:, 1] * sr + x, V[:, 0] * sr + V[:, 1] * cr + y, V[:, 2] + z]
+            mb.add(V, F, mat=M["People"], smooth=True, pcol=col)
     return mb.build("People", coll)
 
 
@@ -1746,6 +1850,23 @@ def camera_specs():
     }
 
 
+def pano_spots(roof_cam):
+    """Eye-level points for 360-degree panoramas (also the walk-through's photo-real spots)."""
+    walk = catmull(WALK_WEST, 0.8)
+    w = walk[np.argmin(np.abs(walk[:, 0] + 50))]
+    xs = 40.0
+    return {
+        "PANO_Plaza": (-7.0, 93.0, GRADE + 1.7),
+        "PANO_Platform": (-60.0, -31.0, GRADE + 1.65),
+        "PANO_SkyBridge": (0.0, 6.0, BRIDGE_Z + 1.65),
+        "PANO_CanopyWalk": (float(w[0]), float(w[1]), float(w[2]) + 1.65),
+        "PANO_Stream": (xs, float(trail_y(xs)), float(terrain_h(xs, trail_y(xs))) + 1.7),
+        "PANO_StairTower": (TOWER[0], TOWER[1] + 1.5, WALK_WEST[-1][2] + 1.65),
+        "PANO_Lookout": (LOOKOUT[0] + 2.0, LOOKOUT[1], LOOKOUT[2] + 1.65),
+        "PANO_Roof": tuple(float(v) for v in roof_cam),
+    }
+
+
 def build_cameras(coll, garden_ctr, garden_n):
     for name, (loc, tgt, lens, frame, dof) in camera_specs().items():
         add_camera(name, loc, tgt, lens, frame, coll, dof)
@@ -1753,6 +1874,10 @@ def build_cameras(coll, garden_ctr, garden_n):
     p = garden_ctr[k] + np.array([0, 0, 9.0])
     tgt = (45.0, -14.0, float(roof_z_at(45.0, -14.0)) - 2.0)
     add_camera("CAM_Roof", tuple(p), tgt, 20, 100, coll)
+    for name, loc in pano_spots(p).items():
+        ob = new_object(name, None, coll, loc)
+        ob.empty_display_type, ob.empty_display_size = "SPHERE", 0.5
+        ob["still_frame"] = 230
 
     cam = add_camera("CAM_Fly", (0, 0, 0), (1, 0, 0), 22, 1, coll)
     path = fly_path()
@@ -1920,7 +2045,7 @@ def main():
     scatter("Understory", terrain, libc["Under"], 0.45, "under", 4, (0.6, 1.4), 0.6, tilt=0.15, parent=planting)
     scatter("Rocks", terrain, libc["Rocks"], 0.12, "rocks", 5, (0.25, 1.1), 1.0, tilt=0.6, parent=planting)
     scatter("RoofGarden", rsoil, libc["Garden"], 3.5, "garden", 6, (0.7, 1.4), 0.22, tilt=0.12, parent=planting)
-    scatter("LawnGrass", lawns, libc["Garden"], 3.0, "lawn", 7, (0.6, 1.1), 0.25, tilt=0.1, parent=planting)
+    scatter("LawnGrass", lawns, libc["Lawn"], 3.0, "lawn", 7, (0.6, 1.1), 0.25, tilt=0.1, parent=planting)
     scatter("Meadow", terrain, libc["Garden"], 2.5, "meadow", 8, (0.7, 1.3), 0.25, tilt=0.15, parent=planting)
     for k, (x, y) in enumerate(EMERGENT):
         new_object(f"EmergentTree{k}", lib["Emergent"].data, planting, (x, y, float(terrain_h(x, y))), (0, 0, 1.3 * k))

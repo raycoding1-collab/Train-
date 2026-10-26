@@ -1,0 +1,1313 @@
+<meta charset="utf-8">
+<title>Emerald Valley Station</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600&text=%E7%BF%A0%E8%B0%B7%E7%AB%99&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a dark gallery (renders first, full width); the 3D walk-through and 360° photos open as a full-screen layer with a glass control dock */
+  :root {
+    --bg: #0b1410;
+    --bg-raised: #12201a;
+    --ink: #eef2ea;
+    --ink-dim: #a9b8a8;
+    --line: rgba(214, 236, 220, 0.14);
+    --glass: linear-gradient(180deg, rgba(24, 38, 32, 0.7), rgba(9, 16, 13, 0.62));
+    --glass-edge: rgba(214, 236, 220, 0.14);
+    --timber: #d9a05b;
+    --timber-ink: #1d1206;
+    --water: #5fa6c9;
+    --danger: #ff8f7a;
+    --font-ui: "Instrument Sans", "Segoe UI", system-ui, sans-serif;
+    --font-cjk: "Noto Serif SC", "Songti SC", "SimSun", serif;
+    --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html { background: var(--bg); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-ui); font-size: 15px; line-height: 1.5; }
+  button { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 7px 14px; cursor: pointer; white-space: nowrap; }
+  button:hover { border-color: rgba(214, 236, 220, 0.42); }
+  button:focus-visible, a:focus-visible, .card:focus-visible, .tile:focus-visible, input:focus-visible { outline: 2px solid var(--timber); outline-offset: 2px; }
+  button[aria-pressed="true"], button.primary { background: var(--timber); color: var(--timber-ink); border-color: var(--timber); font-weight: 600; }
+  svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+  .cjk { font-family: var(--font-cjk); font-weight: 600; color: var(--timber); }
+  .data, .mono { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+  .data { font-size: 12px; color: var(--ink-dim); letter-spacing: 0.01em; }
+
+  /* ---------- gallery */
+  .wrap { max-width: 1320px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; padding-block: 20px 14px; }
+  .brand { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .brand .cjk { font-size: 30px; line-height: 1; }
+  .brand h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.01em; }
+  .seg { display: inline-flex; gap: 4px; padding: 4px; border: 1px solid var(--line); border-radius: 999px; }
+  .seg button { border-color: transparent; padding: 5px 14px; }
+  .hero { border-radius: 16px; overflow: hidden; background: var(--bg-raised); aspect-ratio: 16 / 9; max-width: 100%; cursor: zoom-in; }
+  .hero img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .lede { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 28px; padding-block: 22px 10px; align-items: start; }
+  .lede p { margin: 0; color: var(--ink-dim); max-width: 64ch; font-size: 16px; text-wrap: pretty; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+  .actions button { padding: 11px 18px; display: inline-flex; gap: 8px; align-items: center; }
+  .facts { display: flex; flex-wrap: wrap; gap: 8px 22px; padding-block: 6px 26px; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-dim); font-weight: 600; margin: 34px 0 14px; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .card { display: grid; gap: 8px; cursor: pointer; border-radius: 12px; }
+  .card .img { border-radius: 12px; overflow: hidden; background: var(--bg-raised); aspect-ratio: 16 / 9; }
+  .card img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s ease; }
+  .card:hover img { transform: scale(1.015); }
+  .card .cap { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+  .card .cap b { font-weight: 600; }
+  .card .cap span { color: var(--ink-dim); font-size: 14px; }
+  .pano-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .pano-grid .img { aspect-ratio: 2 / 1; position: relative; }
+  .badge { position: absolute; left: 10px; top: 10px; font: 600 12px var(--font-ui); background: rgba(9, 16, 13, 0.7); border: 1px solid var(--line); color: var(--timber); padding: 2px 8px; border-radius: 999px; }
+  video { width: 100%; border-radius: 12px; background: #000; display: block; aspect-ratio: 16 / 9; }
+  footer { padding-block: 40px 48px; color: var(--ink-dim); font-size: 13px; border-top: 1px solid var(--line); margin-top: 40px; }
+  @media (max-width: 860px) {
+    .lede { grid-template-columns: minmax(0, 1fr); }
+    .actions { justify-content: flex-start; }
+    .grid { grid-template-columns: minmax(0, 1fr); }
+    .pano-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  /* ---------- lightbox */
+  #lightbox { position: fixed; inset: 0; z-index: 20; background: rgba(5, 9, 7, 0.97); display: grid; grid-template-rows: 1fr auto; padding-block: env(safe-area-inset-top, 0px) env(safe-area-inset-bottom, 0px); }
+  #lightbox img { width: 100%; height: 100%; object-fit: contain; min-height: 0; }
+  #lightbox .bar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 14px max(16px, env(safe-area-inset-left, 0px)); }
+  #lightbox .bar .what { min-width: 0; }
+  #lightbox .bar .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ---------- 3D layer and its control panel */
+  #app { position: fixed; inset: 0; z-index: 30; background: #0b1410; overflow: hidden; touch-action: none; -webkit-user-select: none; user-select: none; font-size: 14px; }
+  #view { position: absolute; inset: 0; width: 100%; height: 100%; display: block; outline: none; }
+  .glass { background: var(--glass); border: 1px solid var(--glass-edge); border-radius: 18px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06); backdrop-filter: blur(16px) saturate(140%); -webkit-backdrop-filter: blur(16px) saturate(140%); }
+  .icon { width: 40px; height: 40px; padding: 0; border-radius: 12px; display: grid; place-items: center; border-color: transparent; }
+  .icon:hover { background: rgba(255, 255, 255, 0.06); }
+  .hud { position: absolute; display: flex; gap: 8px; align-items: center; }
+  #hud-status { top: calc(12px + env(safe-area-inset-top, 0px)); left: calc(12px + env(safe-area-inset-left, 0px)); padding: 4px 14px 4px 4px; max-width: calc(100vw - 200px); }
+  #hud-status .st { display: grid; min-width: 0; line-height: 1.3; }
+  #hud-status .st b { font-weight: 600; white-space: nowrap; }
+  #hud-status .st span { color: var(--ink-dim); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #hud-tools { top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(12px + env(safe-area-inset-right, 0px)); padding: 4px; gap: 2px; }
+  #dock { left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); padding: 6px; gap: 10px; max-width: calc(100vw - 24px); }
+  .seg2 { display: flex; gap: 2px; padding: 3px; border-radius: 13px; background: rgba(0, 0, 0, 0.28); }
+  .seg2 button { border: 0; border-radius: 10px; padding: 7px 12px; display: flex; gap: 7px; align-items: center; }
+  .tod { display: flex; gap: 8px; align-items: center; padding-inline: 4px; color: var(--ink-dim); }
+  .tod .clock { font-size: 12px; color: var(--ink); min-width: 38px; text-align: right; }
+  input[type="range"].sky { -webkit-appearance: none; appearance: none; width: 150px; height: 6px; border-radius: 6px; background: linear-gradient(90deg, #9cc6ef 0%, #e8d3a4 58%, #f0a35c 80%, #8c5a86 100%); margin: 0; cursor: pointer; }
+  input[type="range"].sky::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--timber); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); }
+  input[type="range"].sky::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--timber); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); }
+  #btn-places { border: 0; background: rgba(217, 160, 91, 0.16); color: var(--timber); font-weight: 600; display: flex; gap: 7px; align-items: center; border-radius: 12px; padding: 8px 14px; }
+  #btn-places[aria-expanded="true"] { background: var(--timber); color: var(--timber-ink); }
+  #minimap { position: absolute; left: calc(12px + env(safe-area-inset-left, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); width: 176px; height: 176px; border-radius: 22px; padding: 0; cursor: crosshair; }
+  .sheet { position: absolute; z-index: 3; padding: 14px; display: grid; gap: 10px; }
+  #places { left: 50%; transform: translateX(-50%); bottom: calc(80px + env(safe-area-inset-bottom, 0px)); width: min(640px, calc(100vw - 24px)); max-height: min(70vh, 560px); overflow-y: auto; }
+  #places h4, #settings h4 { margin: 2px 2px 0; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-dim); display: flex; justify-content: space-between; gap: 8px; }
+  #places h4 small { text-transform: none; letter-spacing: 0; font-weight: 500; color: var(--timber); font-size: 11px; }
+  .tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .tile { display: grid; gap: 5px; padding: 0; border: 0; border-radius: 12px; text-align: left; color: var(--ink); background: transparent; cursor: pointer; }
+  .tile .thumb { aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #0e1a15; border: 1px solid var(--line); position: relative; }
+  .tile .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .tile span { font-size: 12.5px; font-weight: 500; padding-inline: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile:hover .thumb { border-color: rgba(217, 160, 91, 0.6); }
+  #settings { right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(64px + env(safe-area-inset-top, 0px)); width: min(320px, calc(100vw - 24px)); }
+  #settings p { margin: 0; color: var(--ink-dim); font-size: 12.5px; line-height: 1.45; }
+  #settings .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  #settings .seg2 button { flex: 1; justify-content: center; }
+  #help { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(380px, calc(100vw - 24px)); line-height: 1.6; color: var(--ink-dim); font-size: 13px; }
+  #help b { color: var(--ink); font-weight: 600; }
+  #help kbd { font: 600 11px var(--font-ui); color: var(--ink); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; }
+  #help .close { justify-self: end; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: rgba(238, 242, 234, 0.75); box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35); pointer-events: none; }
+  #photo-bar { left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); padding: 6px 6px 6px 16px; gap: 12px; max-width: calc(100vw - 24px); flex-wrap: wrap; justify-content: center; }
+  #photo-bar .what { display: grid; min-width: 0; line-height: 1.3; }
+  #photo-bar .what b { font-weight: 600; }
+  #photo-bar .what span { color: var(--ink-dim); font-size: 12px; }
+  #app.photo #dock, #app.photo #minimap, #app.photo #stick, #app.photo #vbtns, #app.photo #crosshair, #app.photo #places, #app.photo .walk-only { display: none !important; }
+  #app:not(.photo) #photo-bar { display: none !important; }
+  #loader { position: absolute; inset: 0; display: grid; place-items: center; background: radial-gradient(120% 90% at 50% 100%, #1d3a2a 0%, #0b1410 60%); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); z-index: 5; }
+  #loader .card2 { width: min(440px, 100%); display: grid; gap: 14px; }
+  #loader h3 { margin: 0; font-size: 24px; font-weight: 600; }
+  #loader p { margin: 0; color: var(--ink-dim); }
+  #loader .bar { height: 4px; border-radius: 4px; background: rgba(214, 236, 220, 0.14); overflow: hidden; }
+  #loader .bar i { display: block; height: 100%; width: 0%; background: var(--timber); transition: width 0.2s; }
+  #loader .meta { display: flex; justify-content: space-between; color: var(--ink-dim); font-size: 12px; font-variant-numeric: tabular-nums; gap: 12px; }
+  #loader .error { color: var(--danger); }
+  #stick { position: absolute; left: calc(26px + env(safe-area-inset-left, 0px)); bottom: calc(96px + env(safe-area-inset-bottom, 0px)); width: 116px; height: 116px; border-radius: 50%; border: 1px solid var(--glass-edge); background: rgba(12, 24, 19, 0.35); pointer-events: none; display: none; }
+  #stick i { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(238, 242, 234, 0.35); }
+  #vbtns { position: absolute; right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(100px + env(safe-area-inset-bottom, 0px)); display: none; flex-direction: column; gap: 10px; }
+  #vbtns button { width: 56px; height: 56px; border-radius: 50%; padding: 0; display: grid; place-items: center; }
+  body.touch #stick { display: block; }
+  body.touch #vbtns { display: flex; }
+  body.touch .desk-only { display: none !important; }
+  body.touch #minimap { left: auto; right: calc(12px + env(safe-area-inset-right, 0px)); bottom: auto; top: calc(64px + env(safe-area-inset-top, 0px)); width: 120px; height: 120px; border-radius: 18px; }
+  @media (max-width: 720px) {
+    .tod .clock, .seg2 .lbl, #btn-places .lbl { display: none; }
+    input[type="range"].sky { width: 110px; }
+    .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #hud-status { max-width: calc(100vw - 160px); }
+    body:not(.touch) #minimap { width: 128px; height: 128px; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+  }
+  @media (prefers-reduced-motion: reduce) { .card img, #loader .bar i { transition: none; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-tune" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .9-1 1.6v.4M12 17h.01"/></symbol>
+  <symbol id="i-walk" viewBox="0 0 24 24"><circle cx="13" cy="4.5" r="1.8"/><path d="M10 21l2-6 3 3v4M12 15l1-6-3 2-2 3M13 9l3 3 3 1"/></symbol>
+  <symbol id="i-fly" viewBox="0 0 24 24"><path d="M3 11.5 21 4l-7.5 18-2.6-7.9z"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.1-7-11a7 7 0 0 1 14 0c0 4.9-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M6 15l6-6 6 6"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5l8 4.5 8-4.5M12 12v9"/></symbol>
+  <symbol id="i-360" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="9" ry="4"/><path d="M12 8a9 9 0 0 1 0 8"/><path d="M15 16.5l-3 0.5 1.5 2"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></symbol>
+</svg>
+
+<!-- ======================================================= gallery -->
+<main id="gallery">
+  <div class="wrap">
+    <header class="top">
+      <div class="brand"><span class="cjk">翠谷站</span><h1>Emerald Valley Station</h1></div>
+      <div class="seg" role="group" aria-label="Lighting">
+        <button id="g-day" aria-pressed="true">Day</button>
+        <button id="g-dusk" aria-pressed="false">Dusk</button>
+      </div>
+    </header>
+    <div class="hero card" tabindex="0" data-view="0"><img id="hero-img" alt="Aerial view of Emerald Valley Station: a wavy glass and timber roof over a forest valley, with two maglev viaducts."></div>
+    <section class="lede">
+      <p>A green rail hub over a forest valley: a 216&nbsp;m timber gridshell on branching steel columns, a stream running between two elevated maglev decks, a canopy walk hung from the roof, vine curtains, wildflower roof gardens, solar glazing and a reflecting pool. Every image here is path-traced.</p>
+      <div class="actions">
+        <button class="primary" id="go-walk"><svg class="i"><use href="#i-cube"/></svg>Walk through in 3D</button>
+        <button id="go-photo"><svg class="i"><use href="#i-360"/></svg>360° photos</button>
+        <button id="go-video"><svg class="i"><use href="#i-play"/></svg>Fly-through video</button>
+      </div>
+    </section>
+    <div class="facts data">
+      <span>216 × 106 m gridshell</span><span>3,867 glulam members</span><span>16 dendriform columns</span><span>116,700 plants</span><span>2 maglev trains</span><span>Blender 5.2 · Cycles</span>
+    </div>
+
+    <h2>Renders</h2>
+    <div class="grid" id="stills"></div>
+
+    <h2 id="video-h">Fly-through</h2>
+    <video id="flyvideo" controls playsinline preload="metadata"></video>
+    <p class="data" id="video-cap">10 seconds · 1280 × 720 · Cycles, 12 samples per frame with motion blur.</p>
+
+    <h2>360° photos</h2>
+    <div class="grid pano-grid" id="panos"></div>
+
+    <footer>
+      Modelled entirely in code (Python in Blender 5.2) and rendered with Cycles and OpenImageDenoise. The walk-through draws a lighter real-time version of the same model in your browser and adapts its detail to your device; the renders, the video and the 360° photos are the same full quality on every screen.
+    </footer>
+  </div>
+</main>
+
+<div id="lightbox" hidden>
+  <img id="lb-img" alt="">
+  <div class="bar">
+    <div class="what"><b id="lb-title"></b> <span class="data" id="lb-data"></span></div>
+    <div class="btns">
+      <button id="lb-prev" aria-label="Previous render">←</button>
+      <button id="lb-next" aria-label="Next render">→</button>
+      <button id="lb-mode">Dusk</button>
+      <button id="lb-close">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ======================================================= 3D layer -->
+<div id="app" hidden>
+  <canvas id="view" tabindex="0" aria-label="3D view of Emerald Valley Station"></canvas>
+  <div id="crosshair" hidden></div>
+
+  <div id="hud-status" class="hud glass">
+    <button class="icon" id="btn-gallery" aria-label="Back to the gallery" title="Back to the gallery"><svg class="i"><use href="#i-back"/></svg></button>
+    <div class="st"><b><span class="cjk">翠谷站</span> Emerald Valley</b><span id="status" class="mono">Loading</span></div>
+  </div>
+  <div id="hud-tools" class="hud glass">
+    <button class="icon desk-only" id="btn-help" aria-label="Controls" title="Controls (H)"><svg class="i"><use href="#i-help"/></svg></button>
+    <button class="icon" id="btn-full" aria-label="Full screen" title="Full screen"><svg class="i"><use href="#i-full"/></svg></button>
+    <button class="icon walk-only" id="btn-settings" aria-label="Detail settings" aria-expanded="false" title="Detail"><svg class="i"><use href="#i-tune"/></svg></button>
+  </div>
+
+  <canvas id="minimap" class="glass" aria-label="Map: tap to move there, tap a gold dot for a 360° photo"></canvas>
+
+  <div id="dock" class="hud glass" role="toolbar" aria-label="Controls">
+    <div class="seg2" role="group" aria-label="Movement">
+      <button id="btn-walk" aria-pressed="true" title="Walk with gravity (F)"><svg class="i"><use href="#i-walk"/></svg><span class="lbl">Walk</span></button>
+      <button id="btn-fly" aria-pressed="false" title="Fly freely (F)"><svg class="i"><use href="#i-fly"/></svg><span class="lbl">Fly</span></button>
+    </div>
+    <label class="tod" title="Time of day (T)">
+      <svg class="i"><use href="#i-sun"/></svg>
+      <input id="tod" class="sky" type="range" min="0" max="1000" value="0" aria-label="Time of day, from afternoon to dusk">
+      <svg class="i"><use href="#i-moon"/></svg>
+      <span class="clock mono" id="clock">14:30</span>
+    </label>
+    <button id="btn-places" aria-expanded="false" title="Places (P)"><svg class="i"><use href="#i-pin"/></svg><span class="lbl">Places</span></button>
+  </div>
+
+  <div id="places" class="sheet glass" hidden>
+    <h4>Walk to</h4>
+    <div class="tiles" id="pl-walk"></div>
+    <h4>360° photos <small>path-traced in Blender</small></h4>
+    <div class="tiles" id="pl-photo"></div>
+  </div>
+
+  <div id="settings" class="sheet glass" hidden>
+    <h4>Detail</h4>
+    <div class="seg2" role="group" aria-label="Detail level">
+      <button data-q="fast">Fast</button><button data-q="balanced">Balanced</button><button data-q="ultra">Ultra</button>
+    </div>
+    <div class="row"><span>Automatic</span><button id="btn-auto" aria-pressed="true">On</button></div>
+    <p>Automatic picks the highest detail your device can draw smoothly and trims resolution for a moment when the view gets heavy. The renders and 360° photos are unaffected.</p>
+    <div class="row data"><span id="perf">– fps</span><span id="perf-res">100% resolution</span></div>
+  </div>
+
+  <div id="help" class="sheet glass" hidden>
+    <div><b>Mouse:</b> click the view, then move to look around. <kbd>Esc</kbd> frees the mouse.</div>
+    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> jump or rise &nbsp; <kbd>C</kbd> descend</div>
+    <div><kbd>F</kbd> walk / fly &nbsp; <kbd>T</kbd> afternoon / dusk &nbsp; <kbd>P</kbd> places &nbsp; <kbd>H</kbd> this help</div>
+    <div><b>Map:</b> click anywhere to go there; gold dots open path-traced 360° photos.</div>
+    <button class="close" id="help-close">Got it</button>
+  </div>
+
+  <div id="photo-bar" class="hud glass">
+    <div class="what"><b id="photo-name">360° photo</b><span>Path-traced in Blender · drag to look · scroll or pinch to zoom</span></div>
+    <label class="tod" title="Afternoon or dusk">
+      <svg class="i"><use href="#i-sun"/></svg>
+      <input id="tod2" class="sky" type="range" min="0" max="1000" value="0" aria-label="Afternoon or dusk photo">
+      <svg class="i"><use href="#i-moon"/></svg>
+    </label>
+    <button class="icon" id="photo-prev" aria-label="Previous 360° photo"><svg class="i"><use href="#i-left"/></svg></button>
+    <button class="icon" id="photo-next" aria-label="Next 360° photo"><svg class="i"><use href="#i-right"/></svg></button>
+    <button id="photo-exit" class="primary">Walk from here</button>
+  </div>
+
+  <div id="stick" aria-hidden="true"><i></i></div>
+  <div id="vbtns" aria-label="Movement buttons">
+    <button id="btn-up" class="glass" aria-label="Jump or rise"><svg class="i"><use href="#i-up"/></svg></button>
+    <button id="btn-down" class="glass" aria-label="Descend"><svg class="i"><use href="#i-down"/></svg></button>
+  </div>
+
+  <div id="loader" hidden>
+    <div class="card2">
+      <h3>Loading the station</h3>
+      <p>About 12 MB: the architecture, terrain and a forest of 116,700 plants.</p>
+      <div class="bar" role="progressbar" aria-label="Download progress" aria-valuemin="0" aria-valuemax="100"><i id="bar"></i></div>
+      <div class="meta"><span id="load-step">Fetching the model</span><span id="load-bytes"></span></div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
+    "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.15/build/index.module.js"
+  }
+}
+</script>
+<script type="module">
+// ---------------------------------------------------------------- gallery (no 3D dependencies: works instantly)
+const $ = (id) => document.getElementById(id);
+const STILLS = [
+  ['CAM_Aerial', 'Aerial', 'The gridshell over the valley: roof gardens, solar glazing and two planted oculi.', '30 mm · 150 m up'],
+  ['CAM_Plaza', 'Plaza', 'The reflecting pool doubles the roof and its dendriform columns.', '20 mm · eye level'],
+  ['CAM_Valley', 'Stream', 'Under the roof the stream runs between the two maglev decks.', '17 mm · eye level'],
+  ['CAM_Platform', 'Platform', 'A maglev at the south platform, under the timber lattice.', '24 mm · f/5.6'],
+  ['CAM_Roof', 'Roof garden', 'Wildflower gardens sit in the troughs of the roof waves.', '20 mm · 9 m above the roof'],
+  ['CAM_TrailUp', 'Stair tower', 'The canopy walk ends at a spiral stair down to the trail.', '17 mm · looking up'],
+  ['CAM_Fly', 'Approach', 'Arriving along the valley from the east.', '22 mm · 60 m up'],
+];
+const RENDER_INFO = 'Cycles · 1920 × 1080 · 40 samples + OpenImageDenoise';
+let mediaBase = '';
+let gMode = 'day';
+const still = (name, mode) => `${mediaBase}renders/${name}_${mode}.jpg`;
+function probe(url) { return new Promise((res) => { const i = new Image(); i.onload = () => res(true); i.onerror = () => res(false); i.src = url; }); }
+
+async function initGallery() {
+  // the published page keeps the renders next to it; in the repository they sit one folder up
+  if (!(await probe('renders/CAM_Aerial_day.jpg')) && (await probe('../renders/CAM_Aerial_day.jpg'))) mediaBase = '../';
+  const grid = $('stills');
+  STILLS.forEach(([, title, text], k) => {
+    if (k === 0) return;
+    const c = document.createElement('div');
+    c.className = 'card'; c.tabIndex = 0; c.dataset.view = k;
+    c.innerHTML = '<div class="img"><img loading="lazy" alt=""></div><div class="cap"><b></b><span></span></div>';
+    c.querySelector('img').alt = `${title}: ${text}`;
+    c.querySelector('b').textContent = title;
+    c.querySelector('span').textContent = text;
+    grid.appendChild(c);
+  });
+  document.querySelectorAll('.card[data-view]').forEach((c) => {
+    const open = () => openLightbox(+c.dataset.view);
+    c.addEventListener('click', open);
+    c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+  });
+  setGalleryMode('day');
+  const v = $('flyvideo');
+  v.poster = still('CAM_Fly', 'day');
+  v.src = `${mediaBase}renders/CAM_Fly_day.mp4`;
+  v.addEventListener('error', () => { v.hidden = true; $('video-cap').textContent = 'The fly-through video is still rendering; it appears here when it is done.'; });
+  galleryReady(mediaBase);
+}
+function setGalleryMode(m) {
+  gMode = m;
+  $('g-day').setAttribute('aria-pressed', m === 'day');
+  $('g-dusk').setAttribute('aria-pressed', m === 'dusk');
+  $('hero-img').src = still('CAM_Aerial', m);
+  document.querySelectorAll('#stills .card').forEach((c) => { c.querySelector('img').src = still(STILLS[+c.dataset.view][0], m); });
+}
+$('g-day').addEventListener('click', () => setGalleryMode('day'));
+$('g-dusk').addEventListener('click', () => setGalleryMode('dusk'));
+
+let lbIndex = 0, lbMode = 'day';
+function openLightbox(k) { lbIndex = k; lbMode = gMode; $('lightbox').hidden = false; showLightbox(); $('lb-close').focus(); }
+function showLightbox() {
+  const [name, title, text, lens] = STILLS[lbIndex];
+  $('lb-img').src = still(name, lbMode);
+  $('lb-img').alt = `${title}: ${text}`;
+  $('lb-title').textContent = `${title} · ${lbMode === 'day' ? 'Day' : 'Dusk'}`;
+  $('lb-data').textContent = `${lens} · ${RENDER_INFO}`;
+  $('lb-mode').textContent = lbMode === 'day' ? 'Dusk' : 'Day';
+}
+$('lb-prev').addEventListener('click', () => { lbIndex = (lbIndex + STILLS.length - 1) % STILLS.length; showLightbox(); });
+$('lb-next').addEventListener('click', () => { lbIndex = (lbIndex + 1) % STILLS.length; showLightbox(); });
+$('lb-mode').addEventListener('click', () => { lbMode = lbMode === 'day' ? 'dusk' : 'day'; showLightbox(); });
+$('lb-close').addEventListener('click', () => { $('lightbox').hidden = true; });
+addEventListener('keydown', (e) => {
+  if ($('lightbox').hidden) return;
+  if (e.key === 'Escape') $('lightbox').hidden = true;
+  if (e.key === 'ArrowLeft') $('lb-prev').click();
+  if (e.key === 'ArrowRight') $('lb-next').click();
+});
+$('go-video').addEventListener('click', () => $('video-h').scrollIntoView({ behavior: 'smooth' }));
+
+let manifest = null;
+const manifestReady = fetch('station.json').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }).then((m) => { manifest = m; return m; });
+const thumbOf = (spot) => spot.file.replace('pano/', 'pano/thumbs/');
+function panoImg(img, spot) {
+  img.src = thumbOf(spot);
+  img.addEventListener('error', () => { if (!img.dataset.full) { img.dataset.full = '1'; img.src = spot.file; } else img.closest('.card, .tile').hidden = true; });
+}
+function buildPanoCards() {
+  const grid = $('panos');
+  for (const spot of manifest.panos || []) {
+    const c = document.createElement('div');
+    c.className = 'card'; c.tabIndex = 0;
+    c.innerHTML = '<div class="img"><img loading="lazy" alt=""><span class="badge">360°</span></div><div class="cap"><b></b></div>';
+    const img = c.querySelector('img');
+    img.alt = `360° photo: ${spot.label}`;
+    panoImg(img, spot);
+    c.querySelector('b').textContent = spot.label;
+    const open = () => app().then((a) => a.photo(spot.name));
+    c.addEventListener('click', open);
+    c.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    grid.appendChild(c);
+  }
+}
+let appResolve, galleryReady;
+const appPromise = new Promise((r) => { appResolve = r; });
+const mediaPromise = new Promise((r) => { galleryReady = r; });
+const app = () => appPromise;
+window.__evsGallery = { resolve: (a) => appResolve(a), manifest: () => manifestReady, media: () => mediaPromise, panoImg };
+$('go-walk').addEventListener('click', () => app().then((a) => a.walk()));
+$('go-photo').addEventListener('click', () => app().then((a) => a.photo(manifest && manifest.panos[0] && manifest.panos[0].name)));
+initGallery();
+manifestReady.then(buildPanoCards).catch(() => { $('panos').textContent = 'The 360° photos could not be listed.'; });
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { Sky } from 'three/addons/objects/Sky.js';
+import { Reflector } from 'three/addons/objects/Reflector.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { FXAAPass } from 'three/addons/postprocessing/FXAAPass.js';
+import { MeshBVH } from 'three-mesh-bvh';
+
+const $ = (id) => document.getElementById(id);
+const IS_TOUCH = matchMedia('(pointer: coarse)').matches || 'ontouchstart' in window;
+if (IS_TOUCH) document.body.classList.add('touch');
+const appEl = $('app');
+const manifest = await window.__evsGallery.manifest();
+const mediaBase = await window.__evsGallery.media();
+
+// ---------------------------------------------------------------- detail presets (automatic by default; a resolution governor keeps motion smooth)
+const QUALITY = {
+  fast: { pixelRatio: 1.0, minScale: 0.5, shadows: 0, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 2, grass: 100, grassKeep: 3 },
+  balanced: { pixelRatio: 1.25, minScale: 0.55, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 1, grass: 170, grassKeep: 1 },
+  ultra: { pixelRatio: 2.0, minScale: 0.6, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 1, grass: 300, grassKeep: 1 },
+};
+let quality = IS_TOUCH ? 'fast' : 'balanced';
+let auto = true;
+try {
+  const q = localStorage.getItem('evs-quality');
+  if (QUALITY[q]) { quality = q; auto = false; }
+} catch (e) { /* storage unavailable */ }
+
+// ---------------------------------------------------------------- renderer, post-processing, sky
+const canvas = $('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const glInfo = (() => { try { const gl = renderer.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''; } catch (e) { return ''; } })();
+const SOFTWARE_GL = /swiftshader|llvmpipe|software/i.test(glInfo);
+let forced = null;
+try { forced = localStorage.getItem('evs-force-quality'); } catch (e) { /* storage unavailable */ }
+if (QUALITY[forced]) { quality = forced; auto = false; } else if (SOFTWARE_GL) { quality = 'fast'; auto = false; }
+renderer.toneMapping = THREE.AgXToneMapping;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.autoUpdate = false;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(70, 1, 0.08, 6000);
+camera.layers.enable(1);
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(4, 4, { type: THREE.HalfFloatType }));
+composer.addPass(new RenderPass(scene, camera));
+const gtao = new GTAOPass(scene, camera, 4, 4);
+gtao.blendIntensity = 0.85;
+gtao.updateGtaoMaterial({ radius: 0.8, distanceExponent: 1.4, thickness: 1.5, scale: 1.0, samples: 12 });
+composer.addPass(gtao);
+const bloom = new UnrealBloomPass(new THREE.Vector2(4, 4), 0.55, 0.5, 0.88);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+composer.addPass(new FXAAPass());
+
+const sky = new Sky(); sky.scale.setScalar(5000); scene.add(sky);
+const envScene = new THREE.Scene(); const envSky = new Sky(); envSky.scale.setScalar(900); envScene.add(envSky);
+const pmrem = new THREE.PMREMGenerator(renderer);
+let envRT = null;
+const sun = new THREE.DirectionalLight(0xffffff, 3);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 900;
+sun.shadow.camera.left = -120; sun.shadow.camera.right = 120; sun.shadow.camera.top = 120; sun.shadow.camera.bottom = -120;
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06;
+scene.add(sun, sun.target);
+scene.fog = new THREE.FogExp2(0xaec2d8, 0.00038);
+
+let resScale = 1;
+function applySize() {
+  const pr = Math.min(devicePixelRatio, QUALITY[quality].pixelRatio) * resScale;
+  renderer.setPixelRatio(pr); composer.setPixelRatio(pr);
+  const w = appEl.clientWidth || innerWidth, h = appEl.clientHeight || innerHeight;
+  renderer.setSize(w, h, false); composer.setSize(w, h);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  $('perf-res').textContent = `${Math.round(resScale * 100)}% resolution`;
+  sizeMinimap();
+}
+addEventListener('resize', applySize);
+
+// ---------------------------------------------------------------- procedural textures and materials
+function canvasTexture(size, draw, srgb = true) {
+  const c = document.createElement('canvas'); c.width = c.height = size;
+  draw(c.getContext('2d'), size);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+function speckle(ctx, s, base, spread, n, r) {
+  ctx.fillStyle = base; ctx.fillRect(0, 0, s, s);
+  for (let i = 0; i < n; i++) {
+    const v = Math.random() * spread - spread / 2, k = v > 0 ? 255 : 0;
+    ctx.fillStyle = `rgba(${k},${k},${k},${Math.abs(v)})`;
+    ctx.beginPath(); ctx.arc(Math.random() * s, Math.random() * s, Math.random() * r + 0.5, 0, 6.283); ctx.fill();
+  }
+}
+const tex = {
+  noise: canvasTexture(256, (ctx, s) => speckle(ctx, s, '#d8d8d8', 0.35, 2600, 3)),
+  terrazzo: canvasTexture(256, (ctx, s) => speckle(ctx, s, '#cfcdc8', 0.6, 1800, 1.6)),
+  paving: canvasTexture(256, (ctx, s) => {
+    for (let y = 0; y < 2; y++) for (let x = -1; x < 2; x++) {
+      const v = 200 + Math.random() * 40;
+      ctx.fillStyle = `rgb(${v},${v - 4},${v - 9})`; ctx.fillRect(x * s / 2 + (y % 2) * s / 4, y * s / 2, s / 2, s / 2);
+    }
+    ctx.strokeStyle = 'rgba(40,40,40,0.55)'; ctx.lineWidth = 2;
+    for (let y = 0; y <= 2; y++) { ctx.beginPath(); ctx.moveTo(0, y * s / 2); ctx.lineTo(s, y * s / 2); ctx.stroke(); }
+    for (let y = 0; y < 2; y++) for (let x = 0; x <= 2; x++) { const xx = x * s / 2 + (y % 2) * s / 4; ctx.beginPath(); ctx.moveTo(xx, y * s / 2); ctx.lineTo(xx, (y + 1) * s / 2); ctx.stroke(); }
+  }),
+  wood: canvasTexture(256, (ctx, s) => {
+    ctx.fillStyle = '#c99a66'; ctx.fillRect(0, 0, s, s);
+    for (let i = 0; i < 70; i++) { ctx.strokeStyle = `rgba(90,52,20,${Math.random() * 0.18})`; ctx.lineWidth = Math.random() * 3 + 1; const y = Math.random() * s; ctx.beginPath(); ctx.moveTo(0, y); ctx.bezierCurveTo(s / 3, y + 6, 2 * s / 3, y - 6, s, y); ctx.stroke(); }
+  }),
+  pv: canvasTexture(128, (ctx, s) => {
+    ctx.clearRect(0, 0, s, s);
+    ctx.fillStyle = 'rgba(210,235,230,0.18)'; ctx.fillRect(0, 0, s, s);
+    const n = 7, gap = 2, cell = (s - 8) / n;
+    ctx.fillStyle = 'rgba(8,16,40,1)';
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) ctx.fillRect(4 + x * cell + gap / 2, 4 + y * cell + gap / 2, cell - gap, cell - gap);
+  }),
+};
+const std = (o) => new THREE.MeshStandardMaterial({ side: THREE.DoubleSide, ...o });
+const glow = [];
+function lit(o, color, strength) { const m = std({ ...o, emissive: new THREE.Color(color), emissiveIntensity: 0 }); glow.push([m, strength]); return m; }
+const MAT = {
+  Timber: std({ color: 0xa98a6a, roughness: 0.62, map: tex.wood }),
+  SteelWhite: std({ color: 0xd8dad6, roughness: 0.32, metalness: 0.1 }),
+  SteelDark: std({ color: 0x1c1f22, roughness: 0.4, metalness: 0.7 }),
+  Mullion: std({ color: 0x2a2d31, roughness: 0.35, metalness: 0.8 }),
+  Corten: std({ color: 0x6b3216, roughness: 0.8 }),
+  Glass: std({ color: 0xd6efe9, roughness: 0.04, transparent: true, opacity: 0.2, depthWrite: false, envMapIntensity: 1.6 }),
+  SolarGlass: std({ color: 0xffffff, map: tex.pv, roughness: 0.18, metalness: 0.3, transparent: true, depthWrite: false }),
+  Concrete: std({ color: 0xaaa79f, roughness: 0.82, map: tex.noise }),
+  ConcreteDark: std({ color: 0x84837f, roughness: 0.85, map: tex.noise }),
+  Paving: std({ color: 0x8f8a83, roughness: 0.55, map: tex.paving }),
+  Terrazzo: std({ color: 0x9a9893, roughness: 0.28, map: tex.terrazzo }),
+  Granite: std({ color: 0x141517, roughness: 0.25 }),
+  StoneLight: std({ color: 0xc5c0b6, roughness: 0.5 }),
+  Lawn: std({ color: 0x3f6a22, roughness: 0.9, map: tex.noise }),
+  Soil: std({ color: 0x3b4a1c, roughness: 0.95, map: tex.noise }),
+  Gravel: std({ color: 0x9d9280, roughness: 0.95, map: tex.noise }),
+  Terrain: std({ vertexColors: true, roughness: 0.92, map: tex.noise, side: THREE.FrontSide }),
+  StreamWater: std({ color: 0x1b3a33, roughness: 0.04, metalness: 0.25, envMapIntensity: 1.3 }),
+  Bark: std({ color: 0x4b3a2b, roughness: 0.9 }),
+  Leaf: std({ vertexColors: true, roughness: 0.75 }),
+  VineLeaf: std({ vertexColors: true, roughness: 0.75 }),
+  Flower: std({ vertexColors: true, roughness: 0.6 }),
+  People: std({ vertexColors: true, roughness: 0.7 }),
+  Tactile: std({ color: 0xc9a114, roughness: 0.5 }),
+  Rubber: std({ color: 0x0b0b0b, roughness: 0.6 }),
+  SteelMesh: std({ color: 0x8a8d8f, roughness: 0.4, metalness: 0.8, transparent: true, opacity: 0.35, depthWrite: false }),
+  TrainBody: new THREE.MeshPhysicalMaterial({ color: 0xeef1f1, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.05 }),
+  TrainStripe: std({ color: 0x0b5a3a, roughness: 0.25, metalness: 0.6 }),
+  TrainSkirt: std({ color: 0x16191b, roughness: 0.4, metalness: 0.5 }),
+  TrainWindow: lit({ color: 0x050608, roughness: 0.05, metalness: 0.2 }, 0xffd09a, 1.6),
+  Headlight: lit({ color: 0x0a0b0d, roughness: 0.05 }, 0xfff2da, 6),
+  LED: lit({ color: 0xd9d6cf, roughness: 0.3 }, 0xffb86b, 5),
+  NodeLight: lit({ color: 0xd9d6cf, roughness: 0.3 }, 0xffc47d, 8),
+  LampHead: lit({ color: 0xd9d6cf, roughness: 0.3 }, 0xffc98a, 8),
+  SignGlow: lit({ color: 0xc9cfc8, roughness: 0.35, metalness: 0.6 }, 0xd8ffe6, 3),
+  Display: std({ color: 0x03100a, emissive: new THREE.Color(0x5affa0), emissiveIntensity: 0.9 }),
+};
+const VEG = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.85, side: THREE.DoubleSide });   // one material for every plant
+const PLAIN = { Bark: [0.075, 0.055, 0.04], Rock: [0.2, 0.19, 0.17] };
+
+// ---------------------------------------------------------------- binary model loading
+const SRGB2LIN = new Float32Array(256).map((_, i) => { const c = i / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
+async function fetchBin(name, onBytes) {
+  const res = await fetch(name);
+  if (!res.ok) throw new Error(`${name} could not be loaded (HTTP ${res.status}).`);
+  const reader = res.body.getReader();
+  const chunks = [];
+  for (;;) { const { done, value } = await reader.read(); if (done) break; chunks.push(value); onBytes(value.length); }
+  const blob = new Blob(chunks);
+  const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer());
+  if (head[0] === 0x1f && head[1] === 0x8b) return new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  return blob.arrayBuffer();
+}
+const bufs = {};
+function geometry(rec) {
+  const buf = bufs[rec.file], n = rec.count, g = new THREE.BufferGeometry();
+  const q = new Uint16Array(buf, rec.pos, n * 3), p = new Float32Array(n * 3);
+  const [mx, my, mz] = rec.posMin, [sx, sy, sz] = rec.posScale.map((v) => v / 65535);
+  for (let j = 0; j < n * 3; j += 3) { p[j] = mx + q[j] * sx; p[j + 1] = my + q[j + 1] * sy; p[j + 2] = mz + q[j + 2] * sz; }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const nq = new Int8Array(buf, rec.nrm, n * 3), nn = new Float32Array(n * 3);
+  for (let j = 0; j < n * 3; j++) nn[j] = nq[j] / 127;
+  g.setAttribute('normal', new THREE.BufferAttribute(nn, 3));
+  if (rec.col !== undefined) {
+    const c8 = new Uint8Array(buf, rec.col, n * 3), c = new Float32Array(n * 3);
+    for (let j = 0; j < n * 3; j++) c[j] = SRGB2LIN[c8[j]];
+    g.setAttribute('color', new THREE.BufferAttribute(c, 3));
+  }
+  if (rec.uv !== undefined) g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(buf, rec.uv, n * 2).slice(), 2));
+  const Idx = rec.idxType === 'u32' ? Uint32Array : Uint16Array;
+  g.setIndex(new THREE.BufferAttribute(new Idx(buf, rec.idx, rec.idxCount).slice(), 1));
+  g.computeBoundingSphere();
+  return g;
+}
+
+let collider = null, views = [], loadPromise = null, stationReady = false;
+const statics = new THREE.Group(); scene.add(statics);
+const plants = new THREE.Group(); scene.add(plants);
+const trains = [];
+const tick = () => new Promise((r) => setTimeout(r, 30));
+
+function loadStation() {
+  if (loadPromise) return loadPromise;
+  loadPromise = (async () => {
+    $('loader').hidden = false;
+    const total = Object.values(manifest.files).reduce((a, b) => a + b, 0);
+    let got = 0;
+    const onBytes = (n) => { got += n; $('bar').style.width = `${Math.min(100, (got / total) * 100).toFixed(1)}%`; $('load-bytes').textContent = `${(got / 1e6).toFixed(1)} / ${(total / 1e6).toFixed(1)} MB`; };
+    const names = Object.keys(manifest.files);
+    const loaded = await Promise.all(names.map((n) => fetchBin(n, onBytes)));
+    names.forEach((n, i) => { bufs[n] = loaded[i]; });
+    $('load-step').textContent = 'Building the station'; await tick();
+    const colliderParts = [];
+    for (const rec of manifest.meshes) {
+      const g = geometry(rec);
+      if (rec.material === 'PoolWater') { addPool(g); continue; }
+      const m = new THREE.Mesh(g, MAT[rec.material] || MAT.Concrete);
+      m.castShadow = !!rec.castShadow; m.receiveShadow = true;
+      m.matrixAutoUpdate = false; m.updateMatrix();
+      statics.add(m);
+      if (rec.collide) { const cg = new THREE.BufferGeometry(); cg.setAttribute('position', g.attributes.position); cg.setIndex(g.index); colliderParts.push(cg); }
+    }
+    $('load-step').textContent = 'Building collision'; await tick();
+    const merged = mergeGeometries(colliderParts, false);
+    merged.boundsTree = new MeshBVH(merged);
+    collider = new THREE.Mesh(merged);
+    for (const k of [0, 1]) {
+      const grp = new THREE.Group();
+      for (const rec of manifest.train) { const m = new THREE.Mesh(geometry(rec), MAT[rec.material] || MAT.TrainBody); m.receiveShadow = true; grp.add(m); }
+      if (k === 1) grp.rotation.y = Math.PI;
+      scene.add(grp); trains.push(grp);
+    }
+    $('load-step').textContent = 'Planting the forest'; await tick();
+    buildPlants();
+    views = manifest.views;
+    buildMarkers();
+    buildPlaces();
+    stationReady = true;
+    shadowDirty = true;
+    $('loader').hidden = true;
+  })();
+  loadPromise.catch((err) => { $('load-step').textContent = err.message; $('load-step').classList.add('error'); });
+  return loadPromise;
+}
+
+// ---------------------------------------------------------------- pool mirror
+function addPool(g) {
+  const p = g.attributes.position, y = p.getY(0);
+  const flat = new THREE.BufferGeometry(), arr = new Float32Array(p.count * 3);
+  for (let i = 0; i < p.count; i++) { arr[i * 3] = p.getX(i); arr[i * 3 + 1] = -p.getZ(i); }
+  flat.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  flat.setIndex(g.index);
+  const size = QUALITY[quality].mirror;
+  const mirror = new Reflector(flat, { textureWidth: size, textureHeight: size, color: 0x7f8c8a, clipBias: 0.003 });
+  mirror.rotation.x = -Math.PI / 2; mirror.position.y = y + 0.005;
+  scene.add(mirror);
+}
+
+// ---------------------------------------------------------------- vegetation: GPU instances in 160 m cells, two levels of detail
+const CELL = 160, CELL_R = CELL * 0.72;
+let cells = [];
+const vegGeo = new Map();
+function plantGeometry(proto, lod) {
+  const key = `${proto}:${lod}`;
+  if (vegGeo.has(key)) return vegGeo.get(key);
+  const parts = manifest.prototypes[proto][lod].map((rec) => {
+    const g = geometry(rec);
+    if (!g.attributes.color) {
+      const c = PLAIN[rec.material] || [0.06, 0.12, 0.03], n = g.attributes.position.count, a = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) a.set(c, i * 3);
+      g.setAttribute('color', new THREE.BufferAttribute(a, 3));
+    }
+    if (g.attributes.uv) g.deleteAttribute('uv');
+    return g;
+  });
+  const g = parts.length > 1 ? mergeGeometries(parts, false) : parts[0];
+  vegGeo.set(key, g);
+  return g;
+}
+function ranges(group) {
+  const Q = QUALITY[quality];
+  switch (group) {
+    case 'Conifers': return [Q.nearTree * 0.4, Q.conifer];
+    case 'Forest': return [Q.nearTree, Q.forest];
+    case 'Grove': case 'Placed': return [1e9, 1e9];
+    case 'Understory': return [Q.under, Q.under];
+    case 'RoofGarden': return [150, 500];
+    case 'Rocks': return [100, 450];
+    default: return [Q.grass * 0.6, Q.grass];         // lawns and meadows
+  }
+}
+function buildPlants() {
+  plants.clear(); cells = [];
+  const Q = QUALITY[quality];
+  const byCell = new Map();
+  for (const grp of manifest.instances) {
+    const data = new Float32Array(bufs[grp.file], grp.data, grp.count * 6);
+    const g = grp.group;
+    const keep = g === 'Understory' ? Q.underKeep : (g === 'LawnGrass' || g === 'Meadow') ? Q.grassKeep : 1;
+    const [, far] = ranges(g);
+    for (let i = 0; i < grp.count; i += keep) {
+      const x = data[i * 6], z = data[i * 6 + 2];
+      if (Math.hypot(x, z) > far + 600) continue;      // never visible from anywhere near the station
+      const key = `${Math.floor(x / CELL)},${Math.floor(z / CELL)}`;
+      if (!byCell.has(key)) byCell.set(key, new Map());
+      const cell = byCell.get(key), id = `${g}|${grp.proto}|${grp.data}`;
+      if (!cell.has(id)) cell.set(id, { g, proto: grp.proto, data, idx: [] });
+      cell.get(id).idx.push(i);
+    }
+  }
+  const q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), s = new THREE.Vector3(), p = new THREE.Vector3(), M = new THREE.Matrix4(), c = new THREE.Color();
+  for (const [key, items] of byCell) {
+    const [ci, cj] = key.split(',').map(Number);
+    const cell = { x: (ci + 0.5) * CELL, z: (cj + 0.5) * CELL, sets: [] };
+    for (const item of items.values()) {
+      const set = { g: item.g, near: null, far: null };
+      for (const lod of ['near', 'far']) {
+        if (!manifest.prototypes[item.proto][lod].length) continue;
+        const mesh = new THREE.InstancedMesh(plantGeometry(item.proto, lod), VEG, item.idx.length);
+        item.idx.forEach((i, k) => {
+          const o = i * 6;
+          p.set(item.data[o], item.data[o + 1], item.data[o + 2]);
+          q.setFromAxisAngle(up, item.data[o + 3]);
+          s.setScalar(item.data[o + 4]);
+          M.compose(p, q, s); mesh.setMatrixAt(k, M);
+          c.setScalar(0.82 + 0.36 * item.data[o + 5]); mesh.setColorAt(k, c);
+        });
+        mesh.computeBoundingSphere();
+        mesh.matrixAutoUpdate = false;
+        mesh.receiveShadow = true;
+        mesh.castShadow = lod === 'near' && (item.g === 'Grove' || item.g === 'Placed');
+        if (item.g !== 'Grove' && item.g !== 'Placed' && item.g !== 'RoofGarden') mesh.layers.set(1);   // kept out of the pool reflection
+        mesh.visible = false;
+        plants.add(mesh);
+        set[lod] = mesh;
+      }
+      cell.sets.push(set);
+    }
+    cells.push(cell);
+  }
+  lastCellUpdate.set(1e9, 0, 0);
+}
+const lastCellUpdate = new THREE.Vector3(1e9, 0, 0);
+function updateCells(force = false) {
+  const cx = camera.position.x, cz = camera.position.z;
+  if (!force && Math.hypot(cx - lastCellUpdate.x, cz - lastCellUpdate.z) < 8) return;
+  lastCellUpdate.set(cx, 0, cz);
+  const lift = Math.max(0, camera.position.y - 40) * 0.6;     // from high up, near detail matters less
+  for (const cell of cells) {
+    const d = Math.max(0, Math.hypot(cell.x - cx, cell.z - cz) - CELL_R) + lift;
+    for (const set of cell.sets) {
+      const [near, far] = ranges(set.g);
+      const useNear = d < near && !!set.near;
+      if (set.near) set.near.visible = useNear;
+      if (set.far) set.far.visible = !useNear && d < far;
+    }
+  }
+}
+
+// ---------------------------------------------------------------- photo-real 360° panoramas
+const panoScene = new THREE.Scene();
+const markers = [];
+let photo = null, photoTexKey = '';
+function buildMarkers() {
+  const map = canvasTexture(128, (ctx, s) => {
+    ctx.clearRect(0, 0, s, s);
+    ctx.fillStyle = 'rgba(12,24,19,0.78)'; ctx.beginPath(); ctx.arc(s / 2, s / 2, s / 2 - 6, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = '#d9a05b'; ctx.lineWidth = 6; ctx.stroke();
+    ctx.fillStyle = '#eef2ea'; ctx.font = '600 34px "Instrument Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('360°', s / 2, s / 2 + 2);
+  });
+  const mat = new THREE.SpriteMaterial({ map, depthWrite: false, fog: false });
+  for (const spot of manifest.panos || []) {
+    const m = new THREE.Sprite(mat);
+    m.position.set(spot.pos[0], spot.pos[1] - 0.25, spot.pos[2]);
+    m.scale.setScalar(1.1); m.userData.spot = spot; m.renderOrder = 10;
+    scene.add(m); markers.push(m);
+  }
+}
+async function openPhoto(spot) {
+  if (!spot) return;
+  const dusk = tod > 0.5, key = `${spot.name}:${dusk}`;
+  if (key !== photoTexKey) {
+    $('status').textContent = `Loading the ${spot.label} panorama`;
+    let texture;
+    try {
+      const loader = new THREE.TextureLoader();
+      texture = await loader.loadAsync(dusk ? spot.fileDusk : spot.file).catch(() => loader.loadAsync(spot.file));
+    } catch (err) { $('status').textContent = `The ${spot.label} panorama is not available yet.`; return; }
+    texture.mapping = THREE.EquirectangularReflectionMapping; texture.colorSpace = THREE.SRGBColorSpace;
+    if (panoScene.background) panoScene.background.dispose();
+    panoScene.background = texture;
+    photoTexKey = key;
+  }
+  if (!photo) { player.yaw = -Math.PI / 2; player.pitch = 0; }
+  photo = spot;
+  player.pos.set(spot.pos[0], spot.pos[1] - EYE, spot.pos[2]);
+  appEl.classList.add('photo');
+  closeSheets();
+  $('photo-name').textContent = `360° photo · ${spot.label}`;
+  $('photo-exit').textContent = stationReady ? 'Walk from here' : 'Walk from here (loads 3D)';
+  updateStatus();
+}
+function stepPhoto(k) {
+  const list = manifest.panos, i = list.findIndex((p) => p.name === photo.name);
+  openPhoto(list[(i + k + list.length) % list.length]);
+}
+async function closePhoto() {
+  if (!photo) return;
+  const spot = photo;
+  await loadStation();
+  photo = null;
+  camera.fov = 70; camera.updateProjectionMatrix();
+  appEl.classList.remove('photo');
+  const high = spot.name === 'PANO_Roof';
+  setFly(high);
+  const g = high ? null : groundBelow(spot.pos[0], spot.pos[1] + 0.5, spot.pos[2]);
+  player.pos.set(spot.pos[0], g !== null ? g + 0.02 : spot.pos[1] - EYE, spot.pos[2]);
+  shadowDirty = true;
+  updateStatus();
+}
+const pickRay = new THREE.Raycaster();
+function pickMarker(nx, ny) {
+  pickRay.setFromCamera(new THREE.Vector2(nx, ny), camera);
+  const hit = pickRay.intersectObjects(markers, false)[0];
+  if (hit && hit.distance < 80) { openPhoto(hit.object.userData.spot); return true; }
+  return false;
+}
+
+// ---------------------------------------------------------------- places sheet (walk-to points and 360° photos)
+const VIEW_LABELS = { CAM_Plaza: 'Plaza', CAM_Platform: 'Platform', CAM_Valley: 'Stream', CAM_TrailUp: 'Stair tower', CAM_Roof: 'Above the roof', CAM_Aerial: 'Aerial' };
+function tile(label, img, onPick) {
+  const b = document.createElement('button');
+  b.className = 'tile';
+  b.innerHTML = '<div class="thumb"><img alt="" loading="lazy"></div><span></span>';
+  b.querySelector('span').textContent = label;
+  img(b.querySelector('img'));
+  b.addEventListener('click', () => { closeSheets(); onPick(); canvas.focus(); });
+  return b;
+}
+function buildPlaces() {
+  const walk = $('pl-walk'), ph = $('pl-photo');
+  walk.textContent = ''; ph.textContent = '';
+  for (const v of views) walk.appendChild(tile(VIEW_LABELS[v.name] || v.name, (img) => { img.src = `${mediaBase}renders/${v.name}_day.jpg`; }, () => goTo(v)));
+  for (const spot of manifest.panos || []) ph.appendChild(tile(spot.label, (img) => window.__evsGallery.panoImg(img, spot), () => openPhoto(spot)));
+}
+function closeSheets() {
+  for (const id of ['places', 'settings', 'help']) $(id).hidden = true;
+  $('btn-places').setAttribute('aria-expanded', 'false');
+  $('btn-settings').setAttribute('aria-expanded', 'false');
+}
+function toggleSheet(id, btn) {
+  const open = $(id).hidden;
+  closeSheets();
+  $(id).hidden = !open;
+  if (btn) btn.setAttribute('aria-expanded', String(open));
+  if (open && document.pointerLockElement) document.exitPointerLock();
+}
+
+// ---------------------------------------------------------------- time of day: a continuous blend from afternoon (0) to dusk (1)
+const DAY = { az: 305, el: 36, sun: new THREE.Color(0xfff1de), sunI: 2.6, env: 0.42, turb: 2.6, ray: 1.0, mie: 0.004, g: 0.8, fog: new THREE.Color(0xaec2d8), fogD: 0.00038, exposure: 0.62 };
+const DUSK = { az: 287, el: 2.2, sun: new THREE.Color(0xff8a45), sunI: 1.4, env: 0.3, turb: 6, ray: 2.6, mie: 0.006, g: 0.86, fog: new THREE.Color(0x6e5c69), fogD: 0.0005, exposure: 0.85 };
+let tod = 0, envTimer = null;
+const sunDir = new THREE.Vector3();
+const mix = (a, b, s) => a + (b - a) * s;
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+function setTimeOfDay(s, settle = true) {
+  tod = s;
+  const az = THREE.MathUtils.degToRad(mix(DAY.az, DUSK.az, s)), el = THREE.MathUtils.degToRad(mix(DAY.el, DUSK.el, Math.pow(s, 0.85)));
+  sunDir.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+  for (const sk of [sky, envSky]) {
+    const u = sk.material.uniforms;
+    u.turbidity.value = mix(DAY.turb, DUSK.turb, s); u.rayleigh.value = mix(DAY.ray, DUSK.ray, s);
+    u.mieCoefficient.value = mix(DAY.mie, DUSK.mie, s); u.mieDirectionalG.value = mix(DAY.g, DUSK.g, s);
+    u.sunPosition.value.copy(sunDir).multiplyScalar(400);
+  }
+  sun.color.lerpColors(DAY.sun, DUSK.sun, s); sun.intensity = mix(DAY.sunI, DUSK.sunI, s);
+  scene.environmentIntensity = mix(DAY.env, DUSK.env, s);
+  scene.fog.color.lerpColors(DAY.fog, DUSK.fog, s); scene.fog.density = mix(DAY.fogD, DUSK.fogD, s);
+  renderer.toneMappingExposure = mix(DAY.exposure, DUSK.exposure, s);
+  const lights = smooth(0.45, 0.9, s);
+  for (const [mat, k] of glow) mat.emissiveIntensity = lights * k;
+  bloom.strength = 0.75 * smooth(0.55, 1, s); bloom.enabled = bloom.strength > 0.01;
+  const minutes = Math.round(mix(14 * 60 + 30, 19 * 60 + 12, s));
+  $('clock').textContent = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+  for (const id of ['tod', 'tod2']) if (+$(id).value !== Math.round(s * 1000)) $(id).value = Math.round(s * 1000);
+  clearTimeout(envTimer);
+  const finish = () => {
+    if (envRT) envRT.dispose();
+    envRT = pmrem.fromScene(envScene, 0.02, 1, 2000);
+    scene.environment = envRT.texture;
+    shadowDirty = true;
+    if (photo) openPhoto(photo);
+  };
+  if (settle) finish(); else envTimer = setTimeout(finish, 140);
+}
+
+// ---------------------------------------------------------------- player: capsule walker with collision, or eased free flight
+const player = { pos: new THREE.Vector3(0, 30, 0), vel: new THREE.Vector3(), fv: new THREE.Vector3(), yaw: 0, pitch: 0, onGround: false, fly: false, travelled: 0 };
+const EYE = 1.65, RADIUS = 0.32, HEIGHT = 1.78;
+const keys = new Set();
+const touchMove = new THREE.Vector2();
+let touchUp = 0;
+const seg = new THREE.Line3(), box = new THREE.Box3(), triPt = new THREE.Vector3(), capPt = new THREE.Vector3();
+const vFwd = new THREE.Vector3(), vRight = new THREE.Vector3(), vMove = new THREE.Vector3(), vLook = new THREE.Vector3(), vNew = new THREE.Vector3(), vDelta = new THREE.Vector3();
+const downRay = new THREE.Ray(new THREE.Vector3(), new THREE.Vector3(0, -1, 0));
+
+function groundBelow(x, y, z) {
+  if (!collider) return null;
+  downRay.origin.set(x, y, z);
+  const hit = collider.geometry.boundsTree.raycastFirst(downRay, THREE.DoubleSide);
+  return hit ? hit.point.y : null;
+}
+function setFly(on) {
+  player.fly = on; player.vel.set(0, 0, 0); player.fv.set(0, 0, 0);
+  $('btn-walk').setAttribute('aria-pressed', String(!on));
+  $('btn-fly').setAttribute('aria-pressed', String(on));
+  updateStatus();
+}
+function goTo(v) {
+  const [x, y, z] = v.pos, [dx, dy, dz] = v.dir;
+  player.yaw = Math.atan2(-dx, -dz);
+  player.pitch = Math.asin(Math.max(-1, Math.min(1, dy)));
+  const high = v.name === 'CAM_Aerial' || v.name === 'CAM_Roof';
+  if (high) { setFly(true); player.pos.set(x, y - EYE, z); }
+  else { setFly(false); const g = groundBelow(x, y + 1, z); player.pos.set(x, g !== null ? g + 0.02 : y - EYE, z); }
+  shadowDirty = true;
+}
+function teleport(x, z) {
+  if (player.fly) { player.pos.x = x; player.pos.z = z; shadowDirty = true; return; }
+  const g = groundBelow(x, 400, z);
+  if (g !== null) { player.pos.set(x, g + 0.05, z); player.vel.set(0, 0, 0); shadowDirty = true; }
+}
+
+function step(dt) {
+  vFwd.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+  vRight.set(-vFwd.z, 0, vFwd.x);
+  const ix = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) + touchMove.x;
+  const iz = (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0) - (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) + touchMove.y;
+  const run = keys.has('ShiftLeft') || keys.has('ShiftRight');
+  if (player.fly) {
+    const speed = run ? 50 : 14;
+    vLook.set(-Math.sin(player.yaw) * Math.cos(player.pitch), Math.sin(player.pitch), -Math.cos(player.yaw) * Math.cos(player.pitch));
+    const iy = (keys.has('Space') ? 1 : 0) - (keys.has('KeyC') || keys.has('ControlLeft') ? 1 : 0) + touchUp;
+    vMove.copy(vLook).multiplyScalar(iz).addScaledVector(vRight, ix);
+    if (vMove.lengthSq() > 1) vMove.normalize();
+    vMove.multiplyScalar(speed); vMove.y += iy * speed;
+    player.fv.lerp(vMove, Math.min(1, dt * 4.5));
+    player.pos.addScaledVector(player.fv, dt);
+    player.travelled += player.fv.length() * dt;
+    return;
+  }
+  const speed = run ? 7 : 3;
+  vMove.copy(vFwd).multiplyScalar(iz).addScaledVector(vRight, ix);
+  if (vMove.lengthSq() > 1) vMove.normalize();
+  const k = Math.min(1, dt * (player.onGround ? 11 : 2.5));
+  player.vel.x += (vMove.x * speed - player.vel.x) * k;
+  player.vel.z += (vMove.z * speed - player.vel.z) * k;
+  if (player.onGround && (keys.has('Space') || touchUp > 0)) player.vel.y = 4.6;
+  player.vel.y = Math.max(player.vel.y - 9.81 * dt, -40);
+  player.pos.addScaledVector(player.vel, dt);
+  player.travelled += Math.hypot(player.vel.x, player.vel.z) * dt;
+  seg.start.set(player.pos.x, player.pos.y + RADIUS, player.pos.z);
+  seg.end.set(player.pos.x, player.pos.y + HEIGHT - RADIUS, player.pos.z);
+  box.makeEmpty(); box.expandByPoint(seg.start); box.expandByPoint(seg.end);
+  box.min.addScalar(-RADIUS); box.max.addScalar(RADIUS);
+  collider.geometry.boundsTree.shapecast({
+    intersectsBounds: (b) => b.intersectsBox(box),
+    intersectsTriangle: (tri) => {
+      const dist = tri.closestPointToSegment(seg, triPt, capPt);
+      if (dist < RADIUS) {
+        const dir = capPt.sub(triPt).normalize();
+        if (dir.y > 0.55) dir.set(0, 1, 0);                       // walkable slopes push straight up: no sliding
+        const depth = RADIUS - dist;
+        seg.start.addScaledVector(dir, depth); seg.end.addScaledVector(dir, depth);
+      }
+    },
+  });
+  vNew.set(seg.start.x, seg.start.y - RADIUS, seg.start.z);
+  vDelta.subVectors(vNew, player.pos);
+  player.onGround = vDelta.y > Math.abs(dt * player.vel.y * 0.25);
+  player.pos.copy(vNew);
+  if (player.onGround) player.vel.y = Math.max(0, player.vel.y);
+  else if (vDelta.lengthSq() > 1e-10) { vDelta.normalize(); player.vel.addScaledVector(vDelta, -vDelta.dot(player.vel)); }
+  if (player.pos.y < -60) goTo(views[0]);
+}
+
+// ---------------------------------------------------------------- trains
+function trainX(t, k) {
+  if (k === 0) return -950 + ((t * 55) % 2000);                     // express on the north track, eastbound
+  const T = t % 70, stop = manifest.trains.platformStop, start = 520, v = 40;
+  const decel = (start - stop) * 2 / v;                              // stopping service on the south track, westbound
+  if (T < decel) { const u = T / decel; return stop + (start - stop) * (1 - u) * (1 - u); }
+  if (T < decel + 22) return stop;
+  const u = T - decel - 22; return stop - 0.9 * u * u;
+}
+function updateTrains(t) {
+  const { y, z } = manifest.trains;
+  trains[0].position.set(trainX(t, 0), z, -y);
+  trains[1].position.set(trainX(t, 1), z, y);
+}
+
+// ---------------------------------------------------------------- mini-map (north up, 1.4 m per pixel)
+const mm = $('minimap'), mctx = mm.getContext('2d');
+const MAP_SCALE = 1 / 1.4;
+function sizeMinimap() {
+  const r = mm.getBoundingClientRect(), d = Math.min(devicePixelRatio, 2);
+  mm.width = Math.max(1, Math.round(r.width * d)); mm.height = Math.max(1, Math.round(r.height * d));
+}
+function drawMinimap() {
+  if (!stationReady || photo) return;
+  const W = mm.width, H = mm.height, d = W / mm.getBoundingClientRect().width;
+  const k = MAP_SCALE * d * (player.fly && player.pos.y > 60 ? 0.35 : 1);
+  const cx = player.pos.x, cz = player.pos.z;
+  const P = ([x, z]) => [W / 2 + (x - cx) * k, H / 2 + (z - cz) * k];
+  mctx.clearRect(0, 0, W, H);
+  mctx.save();
+  mctx.beginPath(); mctx.roundRect(0, 0, W, H, 20 * d); mctx.clip();
+  mctx.fillStyle = 'rgba(16, 34, 24, 0.55)'; mctx.fillRect(0, 0, W, H);
+  const poly = (pts, fill, stroke, lw = 1, close = true) => {
+    mctx.beginPath(); pts.forEach((p, i) => { const [x, y] = P(p); i ? mctx.lineTo(x, y) : mctx.moveTo(x, y); });
+    if (close) mctx.closePath();
+    if (fill) { mctx.fillStyle = fill; mctx.fill(); }
+    if (stroke) { mctx.strokeStyle = stroke; mctx.lineWidth = lw * d; mctx.stroke(); }
+  };
+  const m = manifest.map;
+  poly(m.plaza, 'rgba(160,156,148,0.35)'); poly(m.terrace, 'rgba(160,156,148,0.35)');
+  for (const l of m.lawns) poly(l, 'rgba(90,140,60,0.45)');
+  poly(m.stream, null, 'rgba(95,166,201,0.9)', 2.2, false);
+  for (const gw of m.guideways) poly(gw, null, 'rgba(200,200,195,0.65)', 3.2, false);
+  poly(m.pool, 'rgba(95,166,201,0.75)');
+  poly(m.roof, 'rgba(217,160,91,0.08)', 'rgba(217,160,91,0.9)', 1.4);
+  for (const w of m.walks) poly(w, null, 'rgba(238,242,234,0.7)', 1.2, false);
+  for (const spot of manifest.panos || []) {
+    const [x, y] = P([spot.pos[0], spot.pos[2]]);
+    mctx.beginPath(); mctx.arc(x, y, 4.2 * d, 0, 6.283); mctx.fillStyle = '#d9a05b'; mctx.fill();
+    mctx.lineWidth = 1.5 * d; mctx.strokeStyle = 'rgba(9,16,13,0.9)'; mctx.stroke();
+  }
+  mctx.translate(W / 2, H / 2); mctx.rotate(-player.yaw);
+  const cone = mctx.createRadialGradient(0, 0, 0, 0, 0, 34 * d);
+  cone.addColorStop(0, 'rgba(238,242,234,0.35)'); cone.addColorStop(1, 'rgba(238,242,234,0)');
+  mctx.fillStyle = cone; mctx.beginPath(); mctx.moveTo(0, 0); mctx.arc(0, 0, 34 * d, -Math.PI / 2 - 0.62, -Math.PI / 2 + 0.62); mctx.closePath(); mctx.fill();
+  mctx.fillStyle = '#eef2ea'; mctx.beginPath(); mctx.moveTo(0, -7 * d); mctx.lineTo(5 * d, 6 * d); mctx.lineTo(0, 3.5 * d); mctx.lineTo(-5 * d, 6 * d); mctx.closePath(); mctx.fill();
+  mctx.restore();
+  mctx.fillStyle = 'rgba(238,242,234,0.85)'; mctx.font = `600 ${10 * d}px "Instrument Sans", system-ui, sans-serif`; mctx.textAlign = 'center';
+  mctx.fillText('N', W / 2, 13 * d);
+}
+mm.addEventListener('click', (e) => {
+  if (!stationReady) return;
+  const r = mm.getBoundingClientRect(), d = mm.width / r.width;
+  const k = MAP_SCALE * d * (player.fly && player.pos.y > 60 ? 0.35 : 1);
+  const px = (e.clientX - r.left) * d, py = (e.clientY - r.top) * d;
+  const x = player.pos.x + (px - mm.width / 2) / k, z = player.pos.z + (py - mm.height / 2) / k;
+  for (const spot of manifest.panos || []) {
+    if (Math.hypot((spot.pos[0] - x) * k, (spot.pos[2] - z) * k) < 9 * d) { openPhoto(spot); return; }
+  }
+  teleport(x, z);
+});
+
+// ---------------------------------------------------------------- input
+addEventListener('keydown', (e) => {
+  if (appEl.hidden) return;
+  if (e.target instanceof HTMLInputElement) return;
+  if (e.target instanceof HTMLButtonElement && (e.code === 'Space' || e.code === 'Enter')) return;
+  if (e.code === 'Escape') {
+    if (!$('places').hidden || !$('settings').hidden || !$('help').hidden) { closeSheets(); return; }
+    if (photo && document.pointerLockElement !== canvas) { closeApp(); return; }
+  }
+  keys.add(e.code);
+  if (e.code === 'KeyT') setTimeOfDay(tod > 0.5 ? 0 : 1);
+  if (photo) return;
+  if (e.code === 'KeyF') setFly(!player.fly);
+  if (e.code === 'KeyH') toggleSheet('help');
+  if (e.code === 'KeyP') toggleSheet('places', $('btn-places'));
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('blur', () => keys.clear());
+let downAt = null;
+canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; closeSheets(); }, true);
+canvas.addEventListener('click', (e) => {
+  if (photo || !stationReady) return;
+  const still = downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 6;
+  if (document.pointerLockElement === canvas) { pickMarker(0, 0); return; }
+  if (still && pickMarker((e.clientX / innerWidth) * 2 - 1, -(e.clientY / innerHeight) * 2 + 1)) return;
+  if (IS_TOUCH) return;
+  try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (err) { /* pointer lock not allowed here */ }
+});
+document.addEventListener('pointerlockchange', () => { $('crosshair').hidden = document.pointerLockElement !== canvas; });
+const look = (dx, dy, k) => { player.yaw -= dx * k; player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - dy * k)); };
+document.addEventListener('mousemove', (e) => { if (document.pointerLockElement === canvas) look(e.movementX, e.movementY, 0.0022); });
+const sticks = new Map();
+canvas.addEventListener('pointerdown', (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  if (e.pointerType === 'touch' && e.clientX < innerWidth * 0.45 && !photo) sticks.set(e.pointerId, { kind: 'move', x: e.clientX, y: e.clientY });
+  else if (document.pointerLockElement !== canvas) sticks.set(e.pointerId, { kind: 'look', x: e.clientX, y: e.clientY });
+});
+canvas.addEventListener('pointermove', (e) => {
+  const s = sticks.get(e.pointerId); if (!s) return;
+  if (s.kind === 'look') {
+    const lookers = [...sticks.values()].filter((v) => v.kind === 'look');
+    if (photo && lookers.length === 2) {                                // pinch to zoom in photo mode
+      const [a, b] = lookers, d0 = Math.hypot(a.x - b.x, a.y - b.y);
+      s.x = e.clientX; s.y = e.clientY;
+      const d1 = Math.hypot(a.x - b.x, a.y - b.y);
+      camera.fov = Math.max(28, Math.min(95, camera.fov * (d0 / Math.max(1, d1)))); camera.updateProjectionMatrix();
+      return;
+    }
+    const k = (e.pointerType === 'touch' ? 0.005 : 0.004) * (camera.fov / 70);
+    look(e.clientX - s.x, e.clientY - s.y, photo ? -k : k); s.x = e.clientX; s.y = e.clientY;
+  } else {
+    const dx = (e.clientX - s.x) / 50, dy = (e.clientY - s.y) / 50, l = Math.hypot(dx, dy), k = l > 1 ? 1 / l : 1;
+    touchMove.set(dx * k, -dy * k);
+    $('stick').querySelector('i').style.transform = `translate(${dx * k * 34}px, ${dy * k * 34}px)`;
+  }
+});
+const endPointer = (e) => { const s = sticks.get(e.pointerId); if (s && s.kind === 'move') { touchMove.set(0, 0); $('stick').querySelector('i').style.transform = ''; } sticks.delete(e.pointerId); };
+canvas.addEventListener('pointerup', endPointer); canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('wheel', (e) => {
+  if (!photo) return;
+  e.preventDefault();
+  camera.fov = Math.max(28, Math.min(95, camera.fov + e.deltaY * 0.04)); camera.updateProjectionMatrix();
+}, { passive: false });
+for (const [id, v] of [['btn-up', 1], ['btn-down', -1]]) {
+  $(id).addEventListener('pointerdown', (e) => { e.preventDefault(); touchUp = v; });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) $(id).addEventListener(ev, () => { touchUp = 0; });
+}
+$('btn-walk').addEventListener('click', () => setFly(false));
+$('btn-fly').addEventListener('click', () => setFly(true));
+for (const id of ['tod', 'tod2']) {
+  $(id).addEventListener('input', (e) => setTimeOfDay(e.target.value / 1000, false));
+  $(id).addEventListener('change', (e) => setTimeOfDay(e.target.value / 1000, true));
+}
+$('btn-places').addEventListener('click', () => toggleSheet('places', $('btn-places')));
+$('btn-settings').addEventListener('click', () => toggleSheet('settings', $('btn-settings')));
+$('btn-help').addEventListener('click', () => toggleSheet('help'));
+$('help-close').addEventListener('click', () => { closeSheets(); canvas.focus(); });
+$('btn-full').addEventListener('click', () => {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else { const p = appEl.requestFullscreen && appEl.requestFullscreen(); if (p && p.catch) p.catch(() => {}); }
+  } catch (err) { /* full screen not allowed here */ }
+});
+$('photo-prev').addEventListener('click', () => stepPhoto(-1));
+$('photo-next').addEventListener('click', () => stepPhoto(1));
+$('photo-exit').addEventListener('click', () => { closePhoto(); canvas.focus(); });
+$('btn-gallery').addEventListener('click', () => closeApp());
+for (const b of document.querySelectorAll('#settings [data-q]')) b.addEventListener('click', () => setQuality(b.dataset.q, true));
+$('btn-auto').addEventListener('click', () => {
+  auto = !auto;
+  try { if (auto) localStorage.removeItem('evs-quality'); else localStorage.setItem('evs-quality', quality); } catch (e) { /* storage unavailable */ }
+  noUpgrade = false;
+  refreshSettings();
+});
+function refreshSettings() {
+  for (const b of document.querySelectorAll('#settings [data-q]')) b.setAttribute('aria-pressed', String(b.dataset.q === quality));
+  $('btn-auto').setAttribute('aria-pressed', String(auto));
+  $('btn-auto').textContent = auto ? 'On' : 'Off';
+}
+function setQuality(q, manual) {
+  if (manual) { auto = false; try { localStorage.setItem('evs-quality', q); } catch (e) { /* storage unavailable */ } }
+  if (q === quality) { refreshSettings(); return; }
+  quality = q;
+  applyQuality();
+  if (stationReady) { buildPlants(); updateCells(true); }
+}
+function applyQuality() {
+  const Q = QUALITY[quality];
+  resScale = 1;
+  gtao.enabled = Q.ao;
+  renderer.shadowMap.enabled = Q.shadows > 0;
+  sun.castShadow = Q.shadows > 0;
+  if (Q.shadows) { sun.shadow.mapSize.set(Q.shadows, Q.shadows); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
+  scene.traverse((o) => { if (o.material && o.material.isMaterial) o.material.needsUpdate = true; });
+  VEG.needsUpdate = true;
+  shadowDirty = true;
+  refreshSettings();
+  applySize();
+}
+
+function updateStatus() {
+  const clock = $('clock').textContent;
+  if (photo) { $('status').textContent = `360° photo · ${photo.label} · ${tod > 0.5 ? 'dusk' : 'afternoon'}`; return; }
+  if (!stationReady) return;
+  const p = player.pos;
+  $('status').textContent = `${player.fly ? 'Flying' : 'Walking'} · ${Math.max(0, Math.round(p.y + (player.fly ? EYE : 0)))} m · ${clock}`;
+}
+
+// ---------------------------------------------------------------- open / close the 3D layer
+let running = false, helpShownAt = 0;
+function openApp() {
+  if (appEl.hidden) { appEl.hidden = false; document.body.style.overflow = 'hidden'; applySize(); }
+  if (!running) { running = true; requestAnimationFrame(frame); }
+}
+function closeApp() {
+  if (document.pointerLockElement) document.exitPointerLock();
+  if (document.fullscreenElement) { try { document.exitFullscreen(); } catch (e) { /* ignore */ } }
+  closeSheets();
+  appEl.hidden = true; document.body.style.overflow = '';
+  running = false; keys.clear();
+}
+window.__evsGallery.resolve({
+  async walk() {
+    openApp(); appEl.classList.remove('photo'); photo = null;
+    await loadStation(); goTo(views[0]); canvas.focus();
+    let seen = false; try { seen = !!localStorage.getItem('evs-help-seen'); localStorage.setItem('evs-help-seen', '1'); } catch (e) { /* storage unavailable */ }
+    if (!seen && !IS_TOUCH) { toggleSheet('help'); helpShownAt = performance.now(); }
+  },
+  async photo(name) { openApp(); const spot = (manifest.panos || []).find((p) => p.name === name) || manifest.panos[0]; await openPhoto(spot); },
+});
+
+// ---------------------------------------------------------------- main loop with a frame-rate governor
+const timer = new THREE.Timer();
+let t = 0, statusTimer = 0, mapTimer = 0, paused = false, framesDrawn = 0, shadowDirty = true;
+let emaDt = 1 / 60, refresh = 1 / 60, govTimer = 0, calm = 0, strained = 0, noUpgrade = false;
+const shadowCenter = new THREE.Vector3(1e9, 0, 0);
+function governor(dt) {
+  emaDt = emaDt * 0.9 + dt * 0.1;
+  refresh = Math.min(refresh * 1.002, Math.max(1 / 240, emaDt));          // estimate of the display's frame interval
+  govTimer += dt;
+  if (govTimer < 1) return;
+  govTimer = 0;
+  $('perf').textContent = `${Math.round(1 / emaDt)} fps · ${quality}`;
+  const Q = QUALITY[quality];
+  const smoothNow = emaDt < Math.max(refresh * 1.12, 1 / 58), slow = emaDt > 1 / 48;
+  if (slow && resScale > Q.minScale) { resScale = Math.max(Q.minScale, resScale * 0.85); applySize(); }
+  else if (smoothNow && resScale < 1) { resScale = Math.min(1, resScale * 1.07); applySize(); }
+  if (!auto) return;
+  // strong devices climb to more detail; a device that struggles at the lowest resolution steps down
+  if (smoothNow && resScale >= 1 && quality !== 'ultra' && !noUpgrade) { if (++calm >= 4) { calm = 0; setQuality(quality === 'fast' ? 'balanced' : 'ultra', false); } } else calm = 0;
+  if (slow && resScale <= Q.minScale + 0.01 && quality !== 'fast') { if (++strained >= 3) { strained = 0; noUpgrade = true; setQuality(quality === 'ultra' ? 'balanced' : 'fast', false); } } else strained = 0;
+}
+function frame(now) {
+  if (!running) return;
+  requestAnimationFrame(frame);
+  timer.update(now);
+  if (paused) return;
+  const dt = Math.min(timer.getDelta(), 0.1);
+  t += dt;
+  if (photo) {
+    camera.position.set(0, 0, 0);
+    camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+    renderer.render(panoScene, camera);
+    framesDrawn++;
+    return;
+  }
+  if (!stationReady) return;
+  const n = player.fly ? 1 : 4;
+  for (let i = 0; i < n; i++) step(dt / n);
+  updateTrains(t);
+  camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z);
+  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  updateCells();
+  if (sun.castShadow && (shadowDirty || player.pos.distanceTo(shadowCenter) > 12)) {   // shadows are redrawn only after moving
+    shadowCenter.copy(player.pos);
+    sun.position.copy(shadowCenter).addScaledVector(sunDir, 400);
+    sun.target.position.copy(shadowCenter);
+    sun.target.updateMatrixWorld();
+    renderer.shadowMap.needsUpdate = true;
+    shadowDirty = false;
+  }
+  if (helpShownAt && !$('help').hidden && (player.travelled > 20 || now - helpShownAt > 20000)) { closeSheets(); helpShownAt = 0; }
+  statusTimer -= dt; if (statusTimer < 0) { statusTimer = 0.25; updateStatus(); }
+  mapTimer -= dt; if (mapTimer < 0) { mapTimer = 1 / 20; drawMinimap(); }
+  composer.render(dt);
+  framesDrawn++;
+  governor(dt);
+}
+
+applyQuality();
+setTimeOfDay(0);
+window.__evs = {
+  player, goTo, setFly, keys, scene, renderer, camera, composer, panoScene, openPhoto, closePhoto, loadStation, openApp, setTimeOfDay, setQuality,
+  get views() { return views; }, get photo() { return photo; }, get quality() { return quality; }, get framesDrawn() { return framesDrawn; },
+  pause(on) { paused = on; },
+  advance(sec) { for (let i = 0; i < Math.round(sec * 30); i++) { for (let k = 0; k < 4; k++) step(1 / 120); } },
+  syncCamera() { camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z); camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ'); updateCells(true); drawMinimap(); },
+};
+</script>
