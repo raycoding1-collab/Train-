@@ -648,13 +648,13 @@ const glow = [];
 function lit(o, color, strength) { const m = std({ ...o, emissive: new THREE.Color(color), emissiveIntensity: 0 }); glow.push([m, strength]); return m; }
 const MAT = {
   Timber: std({ color: 0xa98a6a, roughness: 0.62, map: tex.wood }),
-  SteelWhite: std({ color: 0xd8dad6, roughness: 0.32, metalness: 0.1 }),
+  SteelWhite: std({ color: 0xc9ccc8, roughness: 0.36, metalness: 0.1 }),
   SteelDark: std({ color: 0x1c1f22, roughness: 0.4, metalness: 0.7 }),
   Mullion: std({ color: 0x2a2d31, roughness: 0.35, metalness: 0.8 }),
   Corten: std({ color: 0x6b3216, roughness: 0.8 }),
   Glass: std({ color: 0xd6efe9, roughness: 0.04, transparent: true, opacity: 0.2, depthWrite: false, envMapIntensity: 1.6 }),
   SolarGlass: std({ color: 0xffffff, map: tex.pv, roughness: 0.18, metalness: 0.3, transparent: true, depthWrite: false }),
-  Concrete: std({ color: 0xaaa79f, roughness: 0.82, map: tex.noise }),
+  Concrete: std({ color: 0x9e9b94, roughness: 0.82, map: tex.noise }),
   ConcreteDark: std({ color: 0x84837f, roughness: 0.85, map: tex.noise }),
   Paving: std({ color: 0x8f8a83, roughness: 0.55, map: tex.paving }),
   Terrazzo: std({ color: 0x9a9893, roughness: 0.28, map: tex.terrazzo }),
@@ -748,7 +748,7 @@ VEG.onBeforeCompile = function (sh) {               // plants sway (tops more th
 const waterNormals = (() => {                       // tileable ripple normals from integer-frequency waves
   const s = 128, c = document.createElement('canvas'); c.width = c.height = s;
   const ctx = c.getContext('2d'), img = ctx.createImageData(s, s);
-  const waves = [[1, 2, 0.3, 1], [3, -1, 1.2, 0.6], [-2, 5, 2.1, 0.4], [6, 3, 0.7, 0.25], [-7, 9, 4, 0.16], [11, -4, 1, 0.1]];
+  const waves = [[1, 2, 0.3, 1], [3, -1, 1.2, 0.6], [-2, 5, 2.1, 0.4], [5, 2, 0.7, 0.2]];
   const h = (x, y) => waves.reduce((a, [u, v, p, k]) => a + Math.sin(6.2832 * (u * x + v * y) / s + p) * k, 0);
   for (let y = 0; y < s; y++) for (let x = 0; x < s; x++) {
     const nx = (h(x - 1, y) - h(x + 1, y)) * 2.2, ny = (h(x, y - 1) - h(x, y + 1)) * 2.2, l = Math.hypot(nx, ny, 1), o = (y * s + x) * 4;
@@ -758,7 +758,7 @@ const waterNormals = (() => {                       // tileable ripple normals f
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   return t;
 })();
-MAT.StreamWater.normalMap = waterNormals; MAT.StreamWater.normalScale.set(0.35, 0.35);
+MAT.StreamWater.normalMap = waterNormals; MAT.StreamWater.normalScale.set(0.28, 0.28);
 const cloudU = { value: 0 };
 const CLOUD_GLSL = `uniform float uWind, uCloud;
   float ch(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -843,7 +843,7 @@ function loadStation() {
       if (rec.material === 'PoolWater') { addPool(g); continue; }
       if (rec.material === 'StreamWater') {
         const p = g.attributes.position, uv = new Float32Array(p.count * 2);
-        for (let i = 0; i < p.count; i++) { uv[i * 2] = p.getX(i) / 7; uv[i * 2 + 1] = p.getZ(i) / 7; }
+        for (let i = 0; i < p.count; i++) { uv[i * 2] = p.getX(i) / 11; uv[i * 2 + 1] = p.getZ(i) / 11; }
         g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
       }
       const m = new THREE.Mesh(g, g.attributes.color ? withAO(rec.material) : (MAT[rec.material] || MAT.Concrete));
@@ -992,6 +992,8 @@ function buildPlants() {
   for (const grp of manifest.instances) {
     const data = new Float32Array(bufs[grp.file], grp.data, grp.count * 6);
     const g = grp.group, B = [0, ...ranges(g)], lods = manifest.prototypes[grp.proto];
+    const tris = (lod) => (lods[lod] || []).reduce((a, r) => a + r.idxCount / 3, 0);
+    if (lods.hero && tris('hero') < 1200 && B[1] < B[2]) B[1] = B[2];   // ferns, grasses: real mesh all the way to the far band
     const has = (k) => k < 3 && lods[LODS[k]] && lods[LODS[k]].length;
     const keep = g === 'Understory' ? Q.underKeep : (g === 'LawnGrass' || g === 'Meadow') ? Q.grassKeep : 1;
     for (let k = 0; k < 3; k++) {
@@ -1164,7 +1166,7 @@ function toggleSheet(id, btn) {
 // ---------------------------------------------------------------- time of day: a continuous blend from afternoon (0) to dusk (1)
 const DAY = { az: 305, el: 36, sun: new THREE.Color(0xfff1de), sunI: 2.6, env: 0.42, turb: 2.6, ray: 1.0, mie: 0.004, g: 0.8, fog: new THREE.Color(0xaec2d8), fogD: 0.00038, exposure: 0.62, cloud: 0.4 };
 const DUSK = { az: 287, el: 2.2, sun: new THREE.Color(0xff8a45), sunI: 1.4, env: 0.3, turb: 6, ray: 2.6, mie: 0.006, g: 0.86, fog: new THREE.Color(0x6e5c69), fogD: 0.0005, exposure: 0.68, cloud: 0.4 };
-const NIGHT = { az: 260, el: -16, sun: new THREE.Color(0x9fb4e8), sunI: 0.22, env: 0.08, turb: 1.5, ray: 0.6, mie: 0.002, g: 0.75, fog: new THREE.Color(0x0c1424), fogD: 0.00032, exposure: 1.3, cloud: 0.12 };
+const NIGHT = { az: 260, el: -16, sun: new THREE.Color(0xa9bdf0), sunI: 0.55, env: 0.16, turb: 1.5, ray: 0.6, mie: 0.002, g: 0.75, fog: new THREE.Color(0x101a2e), fogD: 0.00032, exposure: 1.55, cloud: 0.12 };
 const MOON = new THREE.Vector3(-0.35, 0.82, 0.45).normalize();
 let tod = 0, envTimer = null, todAnim = null;
 const sunDir = new THREE.Vector3(), lightDir = new THREE.Vector3();
