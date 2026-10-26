@@ -107,7 +107,8 @@
   .seg2 button { border: 0; border-radius: 10px; padding: 7px 12px; display: flex; gap: 7px; align-items: center; }
   .tod { display: flex; gap: 8px; align-items: center; padding-inline: 4px; color: var(--ink-dim); }
   .tod .clock { font-size: 12px; color: var(--ink); min-width: 38px; text-align: right; }
-  input[type="range"].sky { -webkit-appearance: none; appearance: none; width: 150px; height: 6px; border-radius: 6px; background: linear-gradient(90deg, #9cc6ef 0%, #e8d3a4 58%, #f0a35c 80%, #8c5a86 100%); margin: 0; cursor: pointer; }
+  input[type="range"].sky { -webkit-appearance: none; appearance: none; width: 150px; height: 6px; border-radius: 6px; background: linear-gradient(90deg, #9cc6ef 0%, #e8d3a4 38%, #f0a35c 54%, #8c5a86 67%, #24305e 84%, #0d1430 100%); margin: 0; cursor: pointer; }
+  input[type="range"].sky2 { background: linear-gradient(90deg, #9cc6ef 0%, #e8d3a4 58%, #f0a35c 80%, #8c5a86 100%); }
   input[type="range"].sky::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: #fff; border: 3px solid var(--timber); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); }
   input[type="range"].sky::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 3px solid var(--timber); box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45); }
   #btn-places { border: 0; background: rgba(217, 160, 91, 0.16); color: var(--timber); font-weight: 600; display: flex; gap: 7px; align-items: center; border-radius: 12px; padding: 8px 14px; }
@@ -133,7 +134,8 @@
   #app .hud, #app #minimap { transition: opacity 0.5s, transform 0.6s var(--ease-out); }
   #app.cinema .hud, #app.cinema #minimap { opacity: 0; pointer-events: none; }
   #app.cinema #dock { transform: translate(-50%, 24px); }
-  #tour-btn { justify-self: start; display: flex; gap: 8px; align-items: center; }
+  .sheet-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  #tour-btn, #ride-btn { display: flex; gap: 8px; align-items: center; }
   #fade { position: absolute; inset: 0; z-index: 4; background: #0b1410; opacity: 0; pointer-events: none; transition: opacity 0.22s ease; }
   #fade.on { opacity: 1; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -287,7 +289,7 @@
     </div>
     <label class="tod" title="Time of day (T)">
       <svg class="i"><use href="#i-sun"/></svg>
-      <input id="tod" class="sky" type="range" min="0" max="1000" value="0" aria-label="Time of day, from afternoon to dusk">
+      <input id="tod" class="sky" type="range" min="0" max="1500" value="0" aria-label="Time of day, from afternoon through dusk to night">
       <svg class="i"><use href="#i-moon"/></svg>
       <span class="clock mono" id="clock">14:30</span>
     </label>
@@ -295,7 +297,10 @@
   </div>
 
   <div id="places" class="sheet glass">
-    <button id="tour-btn" class="primary"><svg class="i"><use href="#i-play"/></svg>Cinematic tour</button>
+    <div class="sheet-actions">
+      <button id="tour-btn" class="primary"><svg class="i"><use href="#i-play"/></svg>Cinematic tour</button>
+      <button id="ride-btn"><svg class="i"><use href="#i-fly"/></svg>Ride the express</button>
+    </div>
     <h4>Walk to</h4>
     <div class="tiles" id="pl-walk"></div>
     <h4>360° photos <small>path-traced in Blender</small></h4>
@@ -317,10 +322,10 @@
   <div id="help" class="sheet glass">
     <div><b>Mouse:</b> click the view, then move to look around. <kbd>Esc</kbd> frees the mouse.</div>
     <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>Shift</kbd> run &nbsp; <kbd>Space</kbd> jump or rise &nbsp; <kbd>C</kbd> descend</div>
-    <div><kbd>F</kbd> walk / fly &nbsp; <kbd>T</kbd> afternoon / dusk &nbsp; <kbd>P</kbd> places &nbsp; <kbd>H</kbd> this help &nbsp; <kbd>M</kbd> sound</div>
+    <div><kbd>F</kbd> walk / fly &nbsp; <kbd>T</kbd> afternoon / dusk / night &nbsp; <kbd>P</kbd> places &nbsp; <kbd>H</kbd> this help &nbsp; <kbd>M</kbd> sound</div>
     <div><b>Map:</b> click anywhere to glide there; gold dots open path-traced 360° photos.</div>
     <div><b>Tour:</b> Places → Cinematic tour flies through every place; any key ends it.</div>
-    <div><b>Explore:</b> twelve discoveries are hidden around the valley, on the roof and in the sky.</div>
+    <div><b>Explore:</b> discoveries are hidden around the valley, on the roof, in the sky and after dark.</div>
     <button class="close" id="help-close">Got it</button>
   </div>
 
@@ -328,7 +333,7 @@
     <div class="what"><b id="photo-name">360° photo</b><span>Path-traced in Blender · drag to look · scroll or pinch to zoom</span></div>
     <label class="tod" title="Afternoon or dusk">
       <svg class="i"><use href="#i-sun"/></svg>
-      <input id="tod2" class="sky" type="range" min="0" max="1000" value="0" aria-label="Afternoon or dusk photo">
+      <input id="tod2" class="sky sky2" type="range" min="0" max="1000" value="0" aria-label="Afternoon or dusk photo">
       <svg class="i"><use href="#i-moon"/></svg>
     </label>
     <button class="icon" id="photo-prev" aria-label="Previous 360° photo"><svg class="i"><use href="#i-left"/></svg></button>
@@ -719,7 +724,7 @@ const windU = { value: 0 };
 VEG.userData.lod = { value: new THREE.Vector2(0, 1e9) };
 VEG.onBeforeCompile = function (sh) {               // plants sway (tops more than the base) and pick their detail level per plant
   sh.uniforms.uWind = windU;
-  sh.uniforms.uLod = this.userData.lod;
+  sh.uniforms.uLod = this.userData.lod; sh.uniforms.uCloud = cloudU;
   sh.vertexShader = 'uniform float uWind;\nuniform vec2 uLod;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
   #ifdef USE_INSTANCING
   { vec3 ip = instanceMatrix[3].xyz; float h = max(position.y, 0.0);
@@ -731,13 +736,14 @@ VEG.onBeforeCompile = function (sh) {               // plants sway (tops more th
   vVegPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;`).replace('void main() {', 'varying vec3 vVegPos;\nvoid main() {');
   // leafy break-up: two octaves of value noise darken the crowns into clusters; faded out with distance to avoid shimmer
   sh.fragmentShader = sh.fragmentShader.replace('void main() {', `varying vec3 vVegPos;
+  ${CLOUD_GLSL}
   float vh(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
   float vn(vec3 p) { vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
     return mix(mix(mix(vh(i), vh(i + vec3(1, 0, 0)), f.x), mix(vh(i + vec3(0, 1, 0)), vh(i + vec3(1, 1, 0)), f.x), f.y),
                mix(mix(vh(i + vec3(0, 0, 1)), vh(i + vec3(1, 0, 1)), f.x), mix(vh(i + vec3(0, 1, 1)), vh(i + vec3(1, 1, 1)), f.x), f.y), f.z); }
   void main() {`).replace('#include <map_fragment>', CARD_FRAGMENT).replace('#include <color_fragment>', `#include <color_fragment>
   { float n = vn(vVegPos * 2.7) * 0.6 + vn(vVegPos * 7.9) * 0.4;
-    diffuseColor.rgb *= mix(1.0, 0.55 + 0.75 * n, smoothstep(140.0, 25.0, distance(vVegPos, cameraPosition))); }`);
+    diffuseColor.rgb *= mix(1.0, 0.55 + 0.75 * n, smoothstep(140.0, 25.0, distance(vVegPos, cameraPosition))) * cloudShade(vVegPos); }`);
 };
 const waterNormals = (() => {                       // tileable ripple normals from integer-frequency waves
   const s = 128, c = document.createElement('canvas'); c.width = c.height = s;
@@ -753,6 +759,20 @@ const waterNormals = (() => {                       // tileable ripple normals f
   return t;
 })();
 MAT.StreamWater.normalMap = waterNormals; MAT.StreamWater.normalScale.set(0.35, 0.35);
+const cloudU = { value: 0 };
+const CLOUD_GLSL = `uniform float uWind, uCloud;
+  float ch(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float cn(vec2 p) { vec2 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(ch(i), ch(i + vec2(1, 0)), f.x), mix(ch(i + vec2(0, 1)), ch(i + vec2(1, 1)), f.x), f.y); }
+  float cloudShade(vec3 w) { vec2 p = w.xz * 0.0045 + uWind * vec2(0.012, 0.005);
+    float n = cn(p) * 0.6 + cn(p * 2.3 + 7.1) * 0.4; return 1.0 - uCloud * smoothstep(0.5, 0.72, n); }`;
+MAT.Terrain.onBeforeCompile = (sh) => {      // cloud shadows drift across the land
+  sh.uniforms.uWind = windU; sh.uniforms.uCloud = cloudU;
+  sh.vertexShader = sh.vertexShader.replace('void main() {', 'varying vec3 vCloudW;\nvoid main() {')
+    .replace('#include <worldpos_vertex>', '#include <worldpos_vertex>\n  vCloudW = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+  sh.fragmentShader = sh.fragmentShader.replace('void main() {', `varying vec3 vCloudW;\n${CLOUD_GLSL}\nvoid main() {`)
+    .replace('#include <color_fragment>', '#include <color_fragment>\n  diffuseColor.rgb *= cloudShade(vCloudW);');
+};
 const PLAIN = { Bark: [0.075, 0.055, 0.04], Rock: [0.2, 0.19, 0.17] };
 
 // ---------------------------------------------------------------- binary model loading
@@ -1135,31 +1155,58 @@ function toggleSheet(id, btn) {
 }
 
 // ---------------------------------------------------------------- time of day: a continuous blend from afternoon (0) to dusk (1)
-const DAY = { az: 305, el: 36, sun: new THREE.Color(0xfff1de), sunI: 2.6, env: 0.42, turb: 2.6, ray: 1.0, mie: 0.004, g: 0.8, fog: new THREE.Color(0xaec2d8), fogD: 0.00038, exposure: 0.62 };
-const DUSK = { az: 287, el: 2.2, sun: new THREE.Color(0xff8a45), sunI: 1.4, env: 0.3, turb: 6, ray: 2.6, mie: 0.006, g: 0.86, fog: new THREE.Color(0x6e5c69), fogD: 0.0005, exposure: 0.68 };
+const DAY = { az: 305, el: 36, sun: new THREE.Color(0xfff1de), sunI: 2.6, env: 0.42, turb: 2.6, ray: 1.0, mie: 0.004, g: 0.8, fog: new THREE.Color(0xaec2d8), fogD: 0.00038, exposure: 0.62, cloud: 0.4 };
+const DUSK = { az: 287, el: 2.2, sun: new THREE.Color(0xff8a45), sunI: 1.4, env: 0.3, turb: 6, ray: 2.6, mie: 0.006, g: 0.86, fog: new THREE.Color(0x6e5c69), fogD: 0.0005, exposure: 0.68, cloud: 0.4 };
+const NIGHT = { az: 260, el: -16, sun: new THREE.Color(0x9fb4e8), sunI: 0.22, env: 0.08, turb: 1.5, ray: 0.6, mie: 0.002, g: 0.75, fog: new THREE.Color(0x0c1424), fogD: 0.00032, exposure: 1.3, cloud: 0.12 };
+const MOON = new THREE.Vector3(-0.35, 0.82, 0.45).normalize();
 let tod = 0, envTimer = null, todAnim = null;
-const sunDir = new THREE.Vector3();
+const sunDir = new THREE.Vector3(), lightDir = new THREE.Vector3();
 const mix = (a, b, s) => a + (b - a) * s;
 const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+// stars for the night sky, twinkling, drawn around the viewer
+const STAR_N = 2600, starPos = new Float32Array(STAR_N * 3), starB = new Float32Array(STAR_N);
+for (let i = 0; i < STAR_N; i++) {
+  const v = new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 0.98 + 0.02, Math.random() * 2 - 1).normalize().multiplyScalar(2800);
+  starPos.set([v.x, v.y, v.z], i * 3); starB[i] = Math.pow(Math.random(), 4);
+}
+const starGeo = new THREE.BufferGeometry();
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3)); starGeo.setAttribute('b', new THREE.BufferAttribute(starB, 1));
+const starMat = new THREE.ShaderMaterial({
+  uniforms: { uA: { value: 0 }, uTime: windU, uPR: { value: 1 } },
+  vertexShader: `attribute float b; uniform float uTime, uPR; varying float vB;
+    void main() { vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mv;
+      vB = b * (0.8 + 0.2 * sin(uTime * (1.5 + b * 4.0) + position.x)); gl_PointSize = (1.3 + b * 2.6) * uPR; }`,
+  fragmentShader: `uniform float uA; varying float vB;
+    void main() { float a = smoothstep(0.5, 0.05, length(gl_PointCoord - 0.5)); gl_FragColor = vec4(vec3(0.82, 0.88, 1.0) * (0.7 + vB * 2.5), a * uA * (0.3 + vB)); }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+});
+const stars = new THREE.Points(starGeo, starMat);
+stars.frustumCulled = false; stars.visible = false; scene.add(stars);
 function setTimeOfDay(s, settle = true) {
   tod = s;
-  const az = THREE.MathUtils.degToRad(mix(DAY.az, DUSK.az, s)), el = THREE.MathUtils.degToRad(mix(DAY.el, DUSK.el, Math.pow(s, 0.85)));
+  const night = s > 1, A = night ? DUSK : DAY, B = night ? NIGHT : DUSK, u = night ? Math.min(1, (s - 1) / 0.5) : s;
+  const az = THREE.MathUtils.degToRad(mix(A.az, B.az, u)), el = THREE.MathUtils.degToRad(mix(A.el, B.el, night ? u : Math.pow(u, 0.85)));
   sunDir.set(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));
+  lightDir.copy(sunDir);
+  if (night) lightDir.lerp(MOON, smooth(0, 0.6, u)).normalize();     // after sunset the moon takes over the light
   for (const sk of [sky, envSky]) {
-    const u = sk.material.uniforms;
-    u.turbidity.value = mix(DAY.turb, DUSK.turb, s); u.rayleigh.value = mix(DAY.ray, DUSK.ray, s);
-    u.mieCoefficient.value = mix(DAY.mie, DUSK.mie, s); u.mieDirectionalG.value = mix(DAY.g, DUSK.g, s);
-    u.sunPosition.value.copy(sunDir).multiplyScalar(400);
+    const un = sk.material.uniforms;
+    un.turbidity.value = mix(A.turb, B.turb, u); un.rayleigh.value = mix(A.ray, B.ray, u);
+    un.mieCoefficient.value = mix(A.mie, B.mie, u); un.mieDirectionalG.value = mix(A.g, B.g, u);
+    un.sunPosition.value.copy(sunDir).multiplyScalar(400);
+    if (un.cloudCoverage) un.cloudCoverage.value = mix(A.cloud, B.cloud, u);
   }
-  sun.color.lerpColors(DAY.sun, DUSK.sun, s); sun.intensity = mix(DAY.sunI, DUSK.sunI, s);
-  scene.environmentIntensity = mix(DAY.env, DUSK.env, s);
-  scene.fog.color.lerpColors(DAY.fog, DUSK.fog, s); scene.fog.density = mix(DAY.fogD, DUSK.fogD, s);
-  renderer.toneMappingExposure = mix(DAY.exposure, DUSK.exposure, s);
+  sun.color.lerpColors(A.sun, B.sun, u); sun.intensity = mix(A.sunI, B.sunI, u);
+  scene.environmentIntensity = mix(A.env, B.env, u);
+  scene.fog.color.lerpColors(A.fog, B.fog, u); scene.fog.density = mix(A.fogD, B.fogD, u);
+  renderer.toneMappingExposure = mix(A.exposure, B.exposure, u);
+  cloudU.value = 0.3 * (1 - smooth(0.5, 0.9, s));
+  starMat.uniforms.uA.value = smooth(1.15, 1.45, s); stars.visible = starMat.uniforms.uA.value > 0.01;
   const lights = smooth(0.45, 0.9, s);
   for (const [mat, k] of glow) mat.emissiveIntensity = lights * k;
-  bloom.strength = 0.45 * smooth(0.55, 1, s); bloom.threshold = 4.0; bloom.enabled = bloom.strength > 0.01;
+  bloom.strength = 0.45 * smooth(0.55, 1, s) + 0.2 * smooth(1, 1.5, s); bloom.threshold = 4.0; bloom.enabled = bloom.strength > 0.01;
   placeShafts();
-  const minutes = Math.round(mix(14 * 60 + 30, 19 * 60 + 12, s));
+  const minutes = Math.round(night ? mix(19 * 60 + 12, 21 * 60 + 40, u) : mix(14 * 60 + 30, 19 * 60 + 12, s));
   $('clock').textContent = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
   for (const id of ['tod', 'tod2']) if (+$(id).value !== Math.round(s * 1000)) $(id).value = Math.round(s * 1000);
   clearTimeout(envTimer);
@@ -1348,6 +1395,25 @@ function stepTour(dt) {
   tour.hold = 3.5;
 }
 $('tour-btn').addEventListener('click', startTour);
+// ride: sit on the nose of the express as it sweeps through the valley and the station
+let ride = null;
+function startRide() {
+  closeSheets(); stopTour();
+  if (document.pointerLockElement) document.exitPointerLock();
+  const tr = trains[0], box = new THREE.Box3().setFromObject(tr);
+  ride = { nose: box.max.x - tr.position.x - 4, top: box.max.y - tr.position.y + 0.9, cz: (box.min.z + box.max.z) / 2 - tr.position.z };
+  travel = null; setFly(true); player.yaw = -Math.PI / 2; player.pitch = -0.05;
+  appEl.classList.add('cinema');
+  showToast('Express maglev', 'Riding the express', 'Look around with the mouse or a finger; any key steps off.');
+}
+function stopRide() { if (!ride) return; ride = null; warpAmt = 0; appEl.classList.remove('cinema'); setFly(true); }
+function stepRide() {
+  const tr = trains[0].position;
+  $('fade').classList.toggle('on', tr.x > 1010);       // dip to dark as the train loops back to the far end of the line
+  player.pos.set(tr.x + ride.nose, tr.y + ride.top - EYE, tr.z + ride.cz);
+  warpAmt = 0.12;
+}
+$('ride-btn').addEventListener('click', startRide);
 
 // ---------------------------------------------------------------- discoveries: twelve things to find
 const STORY = {
@@ -1362,6 +1428,8 @@ const STORY = {
   oculus: ['Oculus', 'A giant tree grows up through an opening in the roof.'],
   express: ['Express maglev', 'The through train crosses the valley at about 200 km/h.'],
   dusk: ['Golden hour', 'At dusk the roof nodes and walkways light up.'],
+  night: ['Starlight', 'After dark the roof glows like a lantern under the stars.'],
+  ride: ['Front seat', 'You rode the express through the valley at about 200 km/h.'],
   sky: ['Bird\u2019s-eye view', 'From 150 m up, the gridshell spreads over the valley like a leaf.'],
 };
 let found = new Set();
@@ -1372,6 +1440,8 @@ const DISCOVER = [
   { id: 'express', test: (c) => trains.length && Math.hypot(Math.max(0, Math.abs(trains[0].position.x - c.x) - manifest.trains.length / 2), trains[0].position.z - c.z, trains[0].position.y - c.y) < 45 },
   { id: 'dusk', test: () => tod > 0.8 },
   { id: 'sky', test: (c) => player.fly && c.y > 150 },
+  { id: 'night', test: () => tod > 1.4 },
+  { id: 'ride', test: () => !!ride },
 ];
 const toastQueue = [];
 let toastBusy = false;
@@ -1514,13 +1584,31 @@ const shaftMat = new THREE.ShaderMaterial({
   transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
 });
 const shafts = [];
+const DUST_N = 280, dustPos = new Float32Array(DUST_N * 3), dustPh = new Float32Array(DUST_N);
+for (let i = 0; i < DUST_N; i++) { const r = Math.sqrt(Math.random()) * 0.95, a = Math.random() * 6.283; dustPos.set([r * Math.cos(a), -Math.random(), r * Math.sin(a)], i * 3); dustPh[i] = Math.random() * 6.283; }
+const dustGeo = new THREE.BufferGeometry();
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3)); dustGeo.setAttribute('phase', new THREE.BufferAttribute(dustPh, 1));
+const dustMat = new THREE.ShaderMaterial({         // motes glittering in the sunbeams, drifting slowly down
+  uniforms: { uI: shaftMat.uniforms.uI, uTime: windU, uSize: { value: 30 } },
+  vertexShader: `attribute float phase; uniform float uTime, uSize; varying float vA;
+    void main() { vec3 p = position; p.x += sin(uTime * 0.13 + phase) * 0.06; p.z += cos(uTime * 0.11 + phase * 1.7) * 0.06;
+      p.y = -fract(-p.y + uTime * 0.003 * (0.5 + fract(phase * 3.0)));
+      vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
+      vA = smoothstep(0.0, 0.08, -p.y) * pow(0.5 + 0.5 * sin(uTime * 1.1 + phase * 9.0), 2.0);
+      gl_PointSize = max(1.0, uSize / max(1.0, -mv.z)); }`,
+  fragmentShader: `uniform float uI; varying float vA;
+    void main() { float a = smoothstep(0.5, 0.1, length(gl_PointCoord - 0.5)); gl_FragColor = vec4(vec3(1.0, 0.95, 0.84) * 2.5, a * vA * min(1.0, uI * 7.0)); }`,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+});
 function buildShafts() {
   const geo = new THREE.CylinderGeometry(1, 1, 1, 48, 1, true).translate(0, -0.5, 0);
   for (const o of manifest.map.oculi) {
     const m = new THREE.Mesh(geo, shaftMat);
     m.matrixAutoUpdate = false; m.frustumCulled = false;
     m.userData.o = o; m.userData.floor = groundBelow(o[0], o[2] - 3, o[1]) ?? 0;
-    scene.add(m); shafts.push(m);
+    const dust = new THREE.Points(dustGeo, dustMat);
+    dust.matrixAutoUpdate = false; dust.frustumCulled = false; m.userData.dust = dust;
+    scene.add(m, dust); shafts.push(m);
   }
   placeShafts();
 }
@@ -1531,7 +1619,10 @@ function placeShafts() {
     m.matrixWorldNeedsUpdate = true;
   }
   shaftMat.uniforms.uI.value = 0.11 * (1 - smooth(0.3, 0.75, tod));
-  for (const m of shafts) m.visible = shaftMat.uniforms.uI.value > 0.002;
+  for (const m of shafts) {
+    m.visible = m.userData.dust.visible = shaftMat.uniforms.uI.value > 0.002;
+    m.userData.dust.matrix.copy(m.matrix); m.userData.dust.matrixWorldNeedsUpdate = true;
+  }
 }
 
 // ---------------------------------------------------------------- fireflies at dusk (drawn around the viewer, wrapped in a 70 m box)
@@ -1710,9 +1801,10 @@ addEventListener('keydown', (e) => {
     if (photo && document.pointerLockElement !== canvas) { closeApp(); return; }
   }
   if (tour) { stopTour(); return; }
+  if (ride && !e.code.startsWith('Shift')) { stopRide(); return; }
   keys.add(e.code);
   if (travel && /^(Key[WASD]|Arrow)/.test(e.code)) travel.t = travel.dur;
-  if (e.code === 'KeyT') todAnim = { from: tod, to: tod > 0.5 ? 0 : 1, t: 0 };
+  if (e.code === 'KeyT') todAnim = { from: tod, to: tod < 0.5 ? 1 : tod < 1.25 ? 1.5 : 0, t: 0 };
   if (e.code === 'KeyM') setSound(!soundOn);
   if (photo) return;
   if (e.code === 'KeyF') setFly(!player.fly);
@@ -1723,7 +1815,7 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => keys.delete(e.code));
 addEventListener('blur', () => keys.clear());
 let downAt = null;
-canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; closeSheets(); stopTour(); }, true);
+canvas.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; closeSheets(); stopTour(); }, true);   // dragging still looks around during a ride; keys end it
 canvas.addEventListener('click', (e) => {
   if (photo || !stationReady) return;
   const still = downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 6;
@@ -1828,6 +1920,7 @@ function applyQuality() {
 function updateStatus() {
   const clock = $('clock').textContent;
   if (photo) { $('status').textContent = `360° photo · ${photo.label} · ${tod > 0.5 ? 'dusk' : 'afternoon'}`; return; }
+  if (ride) { $('status').textContent = `Riding the express · ${clock}`; return; }
   if (!stationReady) return;
   const p = player.pos;
   $('status').textContent = player.fly ? `Flying · ${Math.max(0, Math.round(p.y + EYE))} m · ${clock}` : `Walking · ${clock}`;
@@ -1855,7 +1948,7 @@ function maybeHelp() {
 function closeApp() {
   if (document.pointerLockElement) document.exitPointerLock();
   if (document.fullscreenElement) { try { document.exitFullscreen(); } catch (e) { /* ignore */ } }
-  closeSheets(); stopTour();
+  closeSheets(); stopTour(); stopRide();
   clearTimeout(closeTimer);
   document.body.classList.remove('settled');
   appEl.classList.remove('shown'); document.body.classList.remove('in-app'); document.body.style.overflow = '';
@@ -1918,13 +2011,14 @@ function frame(now) {
   }
   if (!stationReady) return;
   if (tour) stepTour(dt);
-  if (travel) stepTravel(dt);
-  else { const n = player.fly ? 1 : 4; for (let i = 0; i < n; i++) step(dt / n); }
   updateTrains(t);
+  if (ride) stepRide();
+  else if (travel) stepTravel(dt);
+  else { const n = player.fly ? 1 : 4; for (let i = 0; i < n; i++) step(dt / n); }
   updateWildlife(t);
   updateRing(dt);
   warpPass.uniforms.uAmt.value = warpAmt; warpPass.enabled = warpAmt > 0.003;
-  const fovT = travel ? 72 + 22 * warpAmt : player.fly ? 76 : 70;   // wider lens in flight, a punch during a warp jump
+  const fovT = ride ? 82 : travel ? 72 + 22 * warpAmt : player.fly ? 76 : 70;   // wider lens in flight, a punch during a warp jump
   if (Math.abs(camera.fov - fovT) > 0.01) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * (travel ? 8 : 3)); camera.updateProjectionMatrix(); }
   const targetY = player.pos.y + EYE;               // steps and kerbs lift the eye smoothly instead of in jumps
   eyeY = (eyeY === null || player.fly || travel || Math.abs(targetY - eyeY) > 0.8) ? targetY : eyeY + (targetY - eyeY) * Math.min(1, dt * 16);
@@ -1932,6 +2026,9 @@ function frame(now) {
   camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
   updateCells();
   windU.value = t;
+  sky.material.uniforms.time.value = t;            // clouds drift
+  if (stars.visible) { stars.position.copy(camera.position); starMat.uniforms.uPR.value = renderer.getPixelRatio(); }
+  if (shafts.length && shafts[0].visible) dustMat.uniforms.uSize.value = 0.035 * renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)));
   waterNormals.offset.set(t * 0.035, Math.sin(t * 0.21) * 0.02);
   const ffA = smooth(0.6, 0.95, tod) * (player.fly && player.pos.y > 60 ? 0 : 1);
   fireflies.visible = ffA > 0.01;
@@ -1939,7 +2036,7 @@ function frame(now) {
   audioTimer -= dt; if (audioTimer < 0) { audioTimer = 0.1; updateAudio(); }
   if (sun.castShadow && (shadowDirty || player.pos.distanceTo(shadowCenter) > 12)) {   // shadows are redrawn only after moving
     shadowCenter.copy(player.pos);
-    sun.position.copy(shadowCenter).addScaledVector(sunDir, 400);
+    sun.position.copy(shadowCenter).addScaledVector(lightDir, 400);
     sun.target.position.copy(shadowCenter);
     sun.target.updateMatrixWorld();
     renderer.shadowMap.needsUpdate = true;
@@ -1958,7 +2055,7 @@ function frame(now) {
 applyQuality();
 setTimeOfDay(0);
 window.__evs = {
-  player, goTo: (v) => goTo(v, true), travelTo, setFly, get travel() { return travel; }, checkDiscoveries, found, startTour, get warp() { return warpAmt; }, keys, scene, renderer, camera, composer, panoScene, openPhoto, closePhoto, loadStation, openApp, setTimeOfDay, setQuality,
+  player, goTo: (v) => goTo(v, true), travelTo, setFly, get travel() { return travel; }, checkDiscoveries, found, startTour, startRide, stopRide, get warp() { return warpAmt; }, keys, scene, renderer, camera, composer, panoScene, openPhoto, closePhoto, loadStation, openApp, setTimeOfDay, setQuality,
   get views() { return views; }, get calls() { return renderer.info.render.calls; }, get tris() { return renderer.info.render.triangles; }, get photo() { return photo; }, get quality() { return quality; }, get framesDrawn() { return framesDrawn; },
   pause(on) { paused = on; },
   advance(sec) { for (let i = 0; i < Math.round(sec * 30); i++) { for (let k = 0; k < 4; k++) step(1 / 120); } },
