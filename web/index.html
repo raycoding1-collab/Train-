@@ -917,13 +917,15 @@ let dyn = [];
 const bucketKey = (x, z) => (Math.floor(x / BUCKET) + 1000) * 4096 + Math.floor(z / BUCKET) + 1000;
 function makeDynamic(c, geo) {
   const n = c.idx.length, mats = new Float32Array(n * 16), cols = new Float32Array(n * 3), pos = new Float32Array(n * 3), buckets = new Map();
+  const box = [Infinity, -Infinity, Infinity, -Infinity];       // bucket extent, so unlimited bands never scan empty space
   c.idx.forEach((i, k) => {
     const o = i * 6;
     p.set(c.data[o], c.data[o + 1], c.data[o + 2]); q.setFromAxisAngle(up, c.data[o + 3]); sc.setScalar(c.data[o + 4]);
     M.compose(p, q, sc).toArray(mats, k * 16);
     cols.fill(0.82 + 0.36 * c.data[o + 5], k * 3, k * 3 + 3);
     pos.set([p.x, p.y, p.z], k * 3);
-    const key = bucketKey(p.x, p.z);
+    const key = bucketKey(p.x, p.z), bx = Math.floor(p.x / BUCKET), bz = Math.floor(p.z / BUCKET);
+    box[0] = Math.min(box[0], bx); box[1] = Math.max(box[1], bx); box[2] = Math.min(box[2], bz); box[3] = Math.max(box[3], bz);
     if (!buckets.has(key)) buckets.set(key, []);
     buckets.get(key).push(k);
   });
@@ -932,13 +934,14 @@ function makeDynamic(c, geo) {
   mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3);
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); mesh.instanceColor.setUsage(THREE.DynamicDrawUsage);
   mesh.count = 0; mesh.frustumCulled = false; mesh.visible = false;
-  return { mesh, mats, cols, pos, buckets, cap, lo: c.lo, hi: c.hi };
+  return { mesh, mats, cols, pos, buckets, box, cap, lo: c.lo, hi: c.hi };
 }
 function refreshDynamic(cp) {
   for (const d of dyn) {
     const r = d.hi * 1.08, rlo = d.lo * 0.92, im = d.mesh.instanceMatrix.array, ic = d.mesh.instanceColor.array;
     let n = 0;
-    const bx0 = Math.floor((cp.x - r) / BUCKET), bx1 = Math.floor((cp.x + r) / BUCKET), bz0 = Math.floor((cp.z - r) / BUCKET), bz1 = Math.floor((cp.z + r) / BUCKET);
+    const bx0 = Math.max(d.box[0], Math.floor((cp.x - r) / BUCKET)), bx1 = Math.min(d.box[1], Math.floor((cp.x + r) / BUCKET));
+    const bz0 = Math.max(d.box[2], Math.floor((cp.z - r) / BUCKET)), bz1 = Math.min(d.box[3], Math.floor((cp.z + r) / BUCKET));
     for (let bx = bx0; bx <= bx1 && n < d.cap; bx++) for (let bz = bz0; bz <= bz1 && n < d.cap; bz++) {
       const list = d.buckets.get((bx + 1000) * 4096 + bz + 1000);
       if (!list) continue;
