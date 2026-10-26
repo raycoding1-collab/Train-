@@ -24,6 +24,7 @@ from mathutils.bvhtree import BVHTree
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import build_station as bs  # noqa: E402
+import render_sprites  # noqa: E402
 
 OUT = os.path.join(HERE, "web")
 BLEND = os.path.join(HERE, "station.blend")
@@ -450,6 +451,25 @@ def smooth_record(pack, name, material, V, F, C=None):
     return mesh_record(pack, name, material, to_three(V), to_three(vn), col, None, F)
 
 
+def sprite_record(pack, name, ob):
+    """Far impostor: three crossed quads carrying the plant's Cycles render from web/trees.png (render_sprites.py)."""
+    S, m = render_sprites.frame(ob)
+    r, c = divmod(render_sprites.SPRITES.index(name), render_sprites.COLS)
+    u0, u1 = c / render_sprites.COLS, (c + 1) / render_sprites.COLS
+    vt, vb = 1 - r / 2, 1 - (r + 1) / 2                    # textures are flipped: v = 1 is the top row
+    P, UV, I = [], [], []
+    for a in np.radians([0, 60, 120]):
+        h = np.array([np.cos(a), np.sin(a), 0]) * S / 4
+        P += [-h + [0, 0, -m], h + [0, 0, -m], h + [0, 0, S - m], -h + [0, 0, S - m]]
+        UV += [[u0, vb], [u1, vb], [u1, vt], [u0, vt]]
+        b = len(P) - 4
+        I += [[b, b + 1, b + 2], [b, b + 2, b + 3]]
+    P = to_three(np.array(P))
+    N = np.tile([0.0, 1.0, 0.0], (len(P), 1))           # lit as from above, like a canopy
+    return mesh_record(pack, f"{name}:sprite", "Sprite", P, N, np.full((len(P), 3), 255, np.uint8),
+                       np.array(UV, np.float32), np.array(I))
+
+
 def export_vegetation(pack, dg, scene):
     rng = np.random.default_rng(3)
     lib = {o.name: o for o in bpy.data.collections["LIB"].all_objects}
@@ -457,6 +477,9 @@ def export_vegetation(pack, dg, scene):
     for name, ob in lib.items():
         for detail in ("near", "far"):
             recs = []
+            if detail == "far" and name in render_sprites.SPRITES and os.path.exists(os.path.join(OUT, "trees.png")):
+                protos.setdefault(name, {})[detail] = [sprite_record(pack, name, ob)]
+                continue
             if name.startswith("Pine"):
                 (V, F, C), (tV, tF) = conifer_standin(ob, detail)
                 recs += [smooth_record(pack, f"{name}:{detail}:crown", "StandinLeaf", V, F, C),

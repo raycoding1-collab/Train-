@@ -893,8 +893,14 @@ function addPool(g) {
 const FAR_CELL = 480;                              // far detail in big static batches: few draw calls
 let cells = [];
 const vegGeo = new Map(), vegMats = new Map();
+const spriteTex = new THREE.TextureLoader().load('trees.png');
+spriteTex.colorSpace = THREE.SRGBColorSpace; spriteTex.anisotropy = 8;
 function vegMaterial(key) {
-  if (!vegMats.has(key)) { const m = VEG.clone(); m.userData.lod = { value: new THREE.Vector2(0, 1e9) }; m.onBeforeCompile = VEG.onBeforeCompile; vegMats.set(key, m); }
+  if (!vegMats.has(key)) {
+    const m = VEG.clone(); m.userData.lod = { value: new THREE.Vector2(0, 1e9) }; m.onBeforeCompile = VEG.onBeforeCompile;
+    if (key.endsWith(':far')) m.map = spriteTex;                    // far trees are Cycles-rendered impostors
+    vegMats.set(key, m);
+  }
   return vegMats.get(key);
 }
 function plantGeometry(proto, lod) {
@@ -907,6 +913,7 @@ function plantGeometry(proto, lod) {
       for (let i = 0; i < n; i++) a.set(c, i * 3);
       g.setAttribute('color', new THREE.BufferAttribute(a, 3));
     }
+    if (g.attributes.uv) return g;                                       // impostors bring their own atlas coordinates
     const n = g.attributes.position.count, uv = new Float32Array(n * 2).fill(-1);
     if (rec.material === 'Leaf' && rec.count === rec.idxCount) {   // unindexed quads: all first triangles (0,1,2), then all second ones (0,2,3)
       const A = [0, 0, 1, 0, 1, 1], B = [0, 0, 1, 1, 0, 1], half = n / 2;
@@ -923,7 +930,7 @@ function ranges(group) {             // distance limits of the hero (the render 
   const Q = QUALITY[quality], H = Q.hero;
   switch (group) {
     case 'Conifers': return [H * 0.7, H * 0.7, Q.conifer];
-    case 'Forest': return [H, Q.nearTree, Q.forest];
+    case 'Forest': return [H, H * 1.6, Q.forest];
     case 'Grove': case 'Placed': return [Math.max(H, 220), 1e9, 1e9];
     case 'Understory': return [0, Math.min(H * 0.4, 30), Q.under];        // shrubs are dense: leaf-cluster detail close by, no hero
     case 'RoofGarden': return [12, 60, 500];                   // full flowers only when you stand among them
