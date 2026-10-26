@@ -507,9 +507,9 @@ const mediaBase = await window.__evsGallery.media();
 
 // ---------------------------------------------------------------- detail presets (automatic by default; a resolution governor keeps motion smooth)
 const QUALITY = {
-  fast: { hero: 45, pixelRatio: 1.0, minScale: 0.5, shadows: 0, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 2, grass: 100, grassKeep: 3 },
-  balanced: { hero: 80, pixelRatio: 1.25, minScale: 0.55, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 1, grass: 170, grassKeep: 1 },
-  ultra: { hero: 140, pixelRatio: 2.0, minScale: 0.6, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 1, grass: 300, grassKeep: 1 },
+  fast: { hero: 45, pixelRatio: 1.0, minScale: 0.5, shadows: 0, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 3, grass: 100, grassKeep: 3 },
+  balanced: { hero: 60, pixelRatio: 1.25, minScale: 0.55, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 2, grass: 170, grassKeep: 1 },
+  ultra: { hero: 140, pixelRatio: 2.0, minScale: 0.6, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 2, grass: 300, grassKeep: 1 },
 };
 let quality = IS_TOUCH ? 'fast' : 'balanced';
 let auto = true;
@@ -902,13 +902,13 @@ function plantGeometry(proto, lod) {
 function ranges(group) {             // distance limits of the hero (the render mesh), near and far detail levels
   const Q = QUALITY[quality], H = Q.hero;
   switch (group) {
-    case 'Conifers': return [H, H, Q.conifer];
+    case 'Conifers': return [H * 0.7, H * 0.7, Q.conifer];
     case 'Forest': return [H, Q.nearTree, Q.forest];
     case 'Grove': case 'Placed': return [Math.max(H, 220), 1e9, 1e9];
-    case 'Understory': return [H * 0.6, Q.under * 0.5, Q.under];
-    case 'RoofGarden': return [Math.min(H, 40), 150, 500];
+    case 'Understory': return [0, Math.min(H * 0.4, 30), Q.under];        // shrubs are dense: leaf-cluster detail close by, no hero
+    case 'RoofGarden': return [12, 60, 500];                   // full flowers only when you stand among them
     case 'Rocks': return [H * 0.6, 100, 450];
-    default: return [Math.min(H, 45), Q.grass * 0.6, Q.grass];         // lawns and meadows
+    default: return [12, Q.grass * 0.6, Q.grass];         // lawns and meadows
   }
 }
 // Hero and near plants are picked per plant around the viewer (one draw call per kind); far plants sit in big static batches.

@@ -480,8 +480,9 @@ def export_vegetation(pack, dg, scene):
                     recs.append(flat_normals_record(pack, f"{name}:{detail}:trunk", "Bark", *trunk))
             protos.setdefault(name, {})[detail] = recs
         # hero detail: the very mesh the Cycles renders use, for plants close to the viewer
+        thin = (lambda tp: tp % 3 == 0) if name == "Lavender" else None     # 6,480 florets: a third is plenty
         protos[name]["hero"] = [mesh_record(pack, f"{name}:hero:{mat}", mat, P, N, C, None, I)
-                                for mat, (P, N, C, I) in extract(ob, dg, local=True).items()]
+                                for mat, (P, N, C, I) in extract(ob, dg, local=True, keep_faces=thin).items()]
 
     crown = {}
     for name, ob in lib.items():
