@@ -16,7 +16,10 @@ import os
 import sys
 
 import bpy  # noqa: I001  (must precede build_station / bmesh with the PyPI bpy module)
+import time
 import numpy as np
+from mathutils import Vector
+from mathutils.bvhtree import BVHTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -41,9 +44,70 @@ LEAF_RAMPS = {
 }
 
 
+# Baked shading: ambient occlusion by ray casting against the static model, plus canopy shade on the ground,
+# so the real-time view gets the contact shadows and forest-floor darkness of the path-traced renders.
+NO_AO = {"Glass", "SolarGlass", "SteelMesh", "StreamWater", "PoolWater", "LED", "NodeLight", "LampHead", "SignGlow",
+         "Display", "People", "VineLeaf"}
+TREES = []      # (x, y, crown radius, density) of every plant instance in Blender space, filled by export_vegetation
+
+
+def hemisphere(k):
+    i = np.arange(k) + 0.5
+    phi = i * np.pi * (3 - np.sqrt(5))
+    r = np.sqrt(i / k)                          # cosine-weighted
+    return np.c_[r * np.cos(phi), r * np.sin(phi), np.sqrt(1 - r * r)]
+
+
+def bake_ao(bvh, P, N, k=12, dist=7.0):
+    """Fraction of the hemisphere (cosine weighted, distance faded) that sees open sky within `dist`."""
+    H = hemisphere(k)
+    up = np.where(np.abs(N[:, 1:2]) < 0.9, [[0.0, 1.0, 0.0]], [[1.0, 0.0, 0.0]])
+    T = np.cross(up, N)
+    T /= np.linalg.norm(T, axis=1, keepdims=True).clip(1e-9)
+    B = np.cross(N, T)
+    rot = np.random.default_rng(5).uniform(0, 2 * np.pi, len(P))
+    c, s = np.cos(rot), np.sin(rot)
+    O = (P + N * 0.05).tolist()
+    occ = np.zeros(len(P))
+    for j in range(k):
+        hx, hy = H[j, 0] * c - H[j, 1] * s, H[j, 0] * s + H[j, 1] * c
+        D = (T * hx[:, None] + B * hy[:, None] + N * H[j, 2]).tolist()
+        cast = bvh.ray_cast
+        for i in range(len(O)):
+            hit = cast(Vector(O[i]), Vector(D[i]), dist)
+            if hit[0] is not None:
+                occ[i] += 1.0 - 0.5 * hit[3] / dist
+    return np.clip(1 - occ / k, 0, 1)
+
+
+def canopy_shade(x, y, cell=2.0):
+    """Ground darkening under tree crowns: summed crown discs, box blurred, sampled at (x, y) in Blender space."""
+    x0, y0 = -1500.0, -1100.0
+    D = np.zeros((int(3000 / cell) + 2, int(2200 / cell) + 2), np.float32)
+    for tx, ty, R, k in TREES:
+        i0, i1 = max(int((tx - R - x0) / cell), 0), min(int((tx + R - x0) / cell) + 1, D.shape[0])
+        j0, j1 = max(int((ty - R - y0) / cell), 0), min(int((ty + R - y0) / cell) + 1, D.shape[1])
+        if i1 <= i0 or j1 <= j0:
+            continue
+        xs = x0 + (np.arange(i0, i1) + 0.5) * cell
+        ys = y0 + (np.arange(j0, j1) + 0.5) * cell
+        D[i0:i1, j0:j1] += k * np.clip(1 - ((xs[:, None] - tx) ** 2 + (ys[None, :] - ty) ** 2) / (R * R), 0, 1)
+    for ax in (0, 1):                             # 5-cell box blur
+        c = np.cumsum(np.pad(D, [(3, 2) if a == ax else (0, 0) for a in (0, 1)], mode="edge"), axis=ax)
+        D = (np.take(c, range(5, c.shape[ax]), axis=ax) - np.take(c, range(0, c.shape[ax] - 5), axis=ax)) / 5
+    i = np.clip(((x - x0) / cell).astype(int), 0, D.shape[0] - 1)
+    j = np.clip(((y - y0) / cell).astype(int), 0, D.shape[1] - 1)
+    return np.clip(1 / (1 + 1.4 * D[i, j]), 0.38, 1)
+
+
 def to_three(p):
     p = np.asarray(p, np.float64)
     return np.stack([p[..., 0], p[..., 2], -p[..., 1]], -1)
+
+
+def srgb8_to_lin(c):
+    c = np.asarray(c, np.float64) / 255
+    return np.where(c <= 0.04045, c / 12.92, ((c + 0.055) / 1.055) ** 2.4)
 
 
 def lin_to_srgb8(c):
@@ -167,7 +231,7 @@ def extract(ob, dg, local=False, keep_faces=None):
 
 
 # ------------------------------------------------------------------ terrain
-def export_terrain(pack):
+def export_terrain():
     X = 1500 * np.sinh(3.6 * np.linspace(-1, 1, 401)) / np.sinh(3.6)
     Y = 1100 * np.sinh(3.6 * np.linspace(-1, 1, 281)) / np.sinh(3.6)
     XX, YY = np.meshgrid(X, Y, indexing="ij")
@@ -190,8 +254,8 @@ def export_terrain(pack):
     UV = np.stack([XX, YY], -1).reshape(-1, 2) / 6.0
     F = bs.grid_faces(len(X), len(Y))
     I = np.concatenate([F[:, [0, 1, 2]], F[:, [0, 2, 3]]])
-    return mesh_record(pack, "Terrain", "Terrain", P, N, lin_to_srgb8(col.reshape(-1, 3)), UV, I, collide=True,
-                       receiveOnly=True)
+    col = col * canopy_shade(XX, YY)[..., None]
+    return P, N, col.reshape(-1, 3), UV, I
 
 
 # ------------------------------------------------------------------ vegetation stand-ins
@@ -219,21 +283,22 @@ def blob_standin(proto, detail, rng):
     def verts_of(mat):
         return np.unique(lv[loop_mat == mats.index(mat)]) if mat in mats else np.array([], int)
 
-    core_v = verts_of("LeafCore")     # blob cores are ico(2) chunks of 162 consecutive vertices
+    core_v = verts_of("LeafCore")     # blob cores are ico(2) chunks of consecutive vertices
+    chunk = len(bs.ico(2)[0])
     blobs = []
-    for start in range(0, len(core_v), 162):
-        pts = co[core_v[start:start + 162]]
-        if len(pts) < 20:
+    for start in range(0, len(core_v), chunk):
+        pts = co[core_v[start:start + chunk]]
+        if len(pts) < chunk // 2:
             continue
         c = pts.mean(0)
         r = (pts.max(0) - pts.min(0)) / 2 * 1.22
         blobs.append((c, r))
     blobs.sort(key=lambda b: -np.prod(b[1]))
-    keep = {"near": 9, "far": 6}[detail]
+    keep = {"near": 18, "far": 8}[detail]
     blobs = blobs[:keep]
     Vs, Fs, Cs = [], [], []
     base = 0
-    Vi, Fi = ico_mesh(1 if detail == "near" else 0)
+    Vi, Fi = ico_mesh(2 if detail == "near" else 1)
     for c, r in blobs:
         jitter = 1 + 0.08 * rng.standard_normal(len(Vi))
         V = c + Vi * r * jitter[:, None]
@@ -245,15 +310,16 @@ def blob_standin(proto, detail, rng):
         base += len(V)
     leaf = (np.concatenate(Vs), np.concatenate(Fs), np.concatenate(Cs)) if Vs else None
     cards = None
-    if detail == "near" and "Leaf" in mats and proto.name[:5] in ("TreeA", "TreeB", "TreeC", "TreeD", "Grove", "Emerg"):
+    if detail == "near" and "Leaf" in mats and proto.name[:5] in ("TreeA", "TreeB", "TreeC", "TreeD", "Grove", "Emerg", "Shrub"):
         # a sparse set of the tree's own leaf cards, enlarged, so near crowns read as leaves rather than blobs
         landmark = proto.name.startswith(("Grove", "Emerg"))      # only a few of these: give them more leaves
-        polys = np.where((pm == mats.index("Leaf")) & (lt == 4))[0][::3 if landmark else 9]
+        shrub = proto.name.startswith("Shrub")
+        polys = np.where((pm == mats.index("Leaf")) & (lt == 4))[0][::3 if landmark else 6 if shrub else 9]
         ls = np.empty(len(me.polygons), np.int32)
         me.polygons.foreach_get("loop_start", ls)
         quad = co[lv[ls[polys][:, None] + np.arange(4)]]
         ctr = quad.mean(1, keepdims=True)
-        quad = ctr + (quad - ctr) * (1.35 if landmark else 1.9)
+        quad = ctr + (quad - ctr) * (1.35 if landmark else 1.7 if shrub else 1.9)
         shade = np.empty(len(me.polygons), np.float32)
         me.attributes["lv"].data.foreach_get("value", shade)
         col = np.repeat(ramp(shade[polys], LEAF_RAMPS["Leaf"]), 4, 0)
@@ -411,6 +477,12 @@ def export_vegetation(pack, dg, scene):
                     recs.append(flat_normals_record(pack, f"{name}:{detail}:trunk", "Bark", *trunk))
             protos.setdefault(name, {})[detail] = recs
 
+    crown = {}
+    for name, ob in lib.items():
+        if name.startswith(("Tree", "Pine", "Grove", "Emerg", "Shrub")):
+            co = np.empty(len(ob.data.vertices) * 3, np.float32)
+            ob.data.vertices.foreach_get("co", co)
+            crown[name] = float(np.percentile(np.hypot(co[0::3], co[1::3]), 90))
     groups = {}
     for inst in dg.object_instances:
         if not inst.is_instance or not inst.parent or inst.instance_object.name not in lib:
@@ -429,6 +501,9 @@ def export_vegetation(pack, dg, scene):
     inst_recs = []
     for (parent, proto), rows in sorted(groups.items()):
         a = np.array(rows, np.float64)
+        if proto in crown:
+            k = 0.9 if proto.startswith("Pine") else 0.45 if proto.startswith("Shrub") else 0.8
+            TREES.extend((x, y, max(0.6, s * crown[proto]), k) for x, y, s in a[:, [0, 1, 4]])
         pos = to_three(a[:, :3])
         data = np.c_[pos, a[:, 3:6]].astype(np.float32)
         inst_recs.append(dict(group=parent, proto=proto, file=pack.name, data=pack.add(data), count=len(a)))
@@ -486,7 +561,9 @@ def main():
     dg = bpy.context.evaluated_depsgraph_get()
     os.makedirs(OUT, exist_ok=True)
     packs = {k: Pack(f"{k}.bin") for k in ("site", "station", "plants")}
-    meshes = [export_terrain(packs["site"])]
+    protos, instances = export_vegetation(packs["plants"], dg, scene)
+    tP, tN, tC, tUV, tI = export_terrain()
+    items = []
     for name, (collide, shadow) in STATIC.items():
         ob = bpy.data.objects.get(name)
         if ob is None:
@@ -496,17 +573,36 @@ def main():
             keep = lambda tp: (tp % 4 == 0)  # noqa: E731
         pack = packs["site"] if name in ("Stream", "Trail", "People", "VineCurtains") else packs["station"]
         for mat, (P, N, C, I) in extract(ob, dg, keep_faces=keep).items():
-            UV = None
-            if mat == "SolarGlass":
-                UV = np.c_[P[:, 0], -P[:, 2]] / 1.19
-            elif mat in ("Paving", "Terrazzo", "Timber", "Lawn", "Gravel"):
-                UV = np.c_[P[:, 0], -P[:, 2]] / {"Paving": 1.6, "Terrazzo": 4.0, "Timber": 2.0, "Lawn": 6.0,
-                                                  "Gravel": 3.0}[mat]
-            meshes.append(mesh_record(pack, f"{name}:{mat}", mat, P, N, C, UV, I, collide=collide, castShadow=shadow))
+            items.append([pack, name, mat, P, N, C, I, collide, shadow])
+    # occluders: the opaque architecture plus the terrain around the station
+    near = (np.abs(tP[:, 0]) < 400) & (np.abs(tP[:, 2]) < 300)
+    tri = tI[near[tI].all(1)]
+    remap = np.cumsum(near) - 1
+    occ_P, occ_F, base = [tP[near]], [remap[tri]], int(near.sum())
+    for it in items:
+        if it[2] not in NO_AO:
+            occ_P.append(it[3]); occ_F.append(it[6] + base); base += len(it[3])
+    bvh = BVHTree.FromPolygons(np.concatenate(occ_P).tolist(), np.concatenate(occ_F).tolist(), all_triangles=True)
+    t0 = time.time()
+    box = (np.abs(tP[:, 0]) < 260) & (np.abs(tP[:, 2]) < 200)
+    tC[box] *= (0.3 + 0.7 * bake_ao(bvh, tP[box], tN[box], k=12, dist=25.0))[:, None]
+    meshes = [mesh_record(packs["site"], "Terrain", "Terrain", tP, tN, lin_to_srgb8(tC), tUV, tI, collide=True, receiveOnly=True)]
+    for pack, name, mat, P, N, C, I, collide, shadow in items:
+        UV = None
+        if mat == "SolarGlass":
+            UV = np.c_[P[:, 0], -P[:, 2]] / 1.19
+        elif mat in ("Paving", "Terrazzo", "Timber", "Lawn", "Gravel"):
+            UV = np.c_[P[:, 0], -P[:, 2]] / {"Paving": 1.6, "Terrazzo": 4.0, "Timber": 2.0, "Lawn": 6.0,
+                                              "Gravel": 3.0}[mat]
+        if mat not in NO_AO:
+            ao = 0.25 + 0.75 * bake_ao(bvh, P, N)
+            C = lin_to_srgb8(np.repeat(ao[:, None], 3, 1)) if C is None else \
+                lin_to_srgb8(srgb8_to_lin(C) * ao[:, None])
+        meshes.append(mesh_record(pack, f"{name}:{mat}", mat, P, N, C, UV, I, collide=collide, castShadow=shadow))
+    print(f"baked ambient occlusion in {time.time() - t0:.0f}s")
     train = []
     for mat, (P, N, C, I) in extract(bpy.data.objects["TrainA"], dg, local=True).items():
         train.append(mesh_record(packs["station"], f"Train:{mat}", mat, P, N, C, None, I, castShadow=True))
-    protos, instances = export_vegetation(packs["plants"], dg, scene)
     manifest = dict(
         meshes=meshes, train=train, prototypes=protos, instances=instances, views=camera_views(scene), panos=pano_spots(), map=map_data(),
         trains=dict(z=bs.TRAIN_Z, y=bs.GUIDE_Y, platformStop=-70.0, length=6 * 26.0 + 5 * 0.9),
