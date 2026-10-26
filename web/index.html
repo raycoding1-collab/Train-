@@ -886,6 +886,8 @@ function addPool(g) {
   const size = QUALITY[quality].mirror;
   const mirror = new Reflector(flat, { textureWidth: size, textureHeight: size, color: 0x7f8c8a, clipBias: 0.003 });
   mirror.rotation.x = -Math.PI / 2; mirror.position.y = y + 0.005;
+  const reflectionCamera = mirror.getReflectionCamera;            // the mirror camera clones ours: keep it to layer 0
+  mirror.getReflectionCamera = (cam) => { const rc = reflectionCamera.call(mirror, cam); rc.layers.set(0); return rc; };
   scene.add(mirror);
 }
 
@@ -993,7 +995,7 @@ function buildPlants() {
     const data = new Float32Array(bufs[grp.file], grp.data, grp.count * 6);
     const g = grp.group, B = [0, ...ranges(g)], lods = manifest.prototypes[grp.proto];
     const tris = (lod) => (lods[lod] || []).reduce((a, r) => a + r.idxCount / 3, 0);
-    if (lods.hero && tris('hero') < 1200 && B[1] < B[2]) B[1] = B[2];   // ferns, grasses: real mesh all the way to the far band
+    if (g === 'Understory' && tris('hero') < 400) B[1] = B[2];          // ferns: the real mesh is as cheap as a stand-in
     const has = (k) => k < 3 && lods[LODS[k]] && lods[LODS[k]].length;
     const keep = g === 'Understory' ? Q.underKeep : (g === 'LawnGrass' || g === 'Meadow') ? Q.grassKeep : 1;
     for (let k = 0; k < 3; k++) {
