@@ -7,9 +7,11 @@ maglev decks, a canopy walk, vine curtains, roof gardens, solar glazing and a re
 ![Aerial, day](renders/CAM_Aerial_day.jpg)
 
 ## Status
-- `build_station.py` builds `station.blend` from scratch (~40 s, no external assets).
+- `build_station.py` builds `station.blend` from scratch (~10 s, no external assets).
 - `render.py` renders any camera in day or dusk light with Cycles; stills and the
   fly-through are in [`renders/`](renders/).
+- `web/index.html` is a self-contained showcase: the renders, the fly-through video,
+  path-traced 360° photos and a real-time first-person walk/fly through the model.
 - Targets **Blender 5.2 LTS** (Cycles path tracing, OpenImageDenoise, geometry-nodes
   scattering, multiple-scattering sky, AgX colour).
 
@@ -53,6 +55,10 @@ the valley); frames are written to `renders/<name>_frames/` first, so an interru
 Other options: `--frame N`, `--frames A B`, `--sun-az/--sun-el` (compass degrees),
 `--no-motion-blur`, `--threads N`.
 
+`--pano` renders 360° equirectangular panoramas (3072x1536) at the eight `PANO_*` spots
+(plaza, platform, sky bridge, canopy walk, stream trail, stair tower, lookout, roof) into the
+path given by `--out`, e.g. `--pano --mode both --samples 32 --out web/pano/{cam}_{mode}.jpg`.
+
 Rendering uses Cycles on the CPU with OpenImageDenoise, so it works headless without a GPU.
 `--engine EEVEE` is available but needs a GPU/display.
 
@@ -69,8 +75,27 @@ Rendering uses Cycles on the CPU with OpenImageDenoise, so it works headless wit
 | ![](renders/CAM_TrailUp_day.jpg) | ![](renders/CAM_TrailUp_dusk.jpg) |
 | ![](renders/CAM_Fly_day.jpg) | ![](renders/CAM_Fly_dusk.jpg) |
 
+## Web viewer
+```
+blender52/bin/python export_web.py         # station.blend -> web/station.json + web/*.bin (~12 MB gzip)
+python3 -m http.server 8000                # then open http://localhost:8000/web/
+```
+The page opens on a gallery of the Cycles renders, the video and the 360° photos (no 3D
+download needed). **Walk through in 3D** loads the model into the browser (three.js, WebGL 2):
+- **Walk** with collision and gravity, or **Fly**; mouse/keyboard on laptops, touch stick on phones.
+- Glass control dock: walk/fly, a time-of-day slider from 14:30 to dusk, **Places** (glide to
+  viewpoints or open 360° photos), a live mini-map (click to glide there), detail settings,
+  ambient sound (stream, wind, birds, crickets, passing trains; synthesised, no audio files).
+- Twelve discoveries to find; birds, butterflies, fireflies at dusk, sun shafts through the
+  oculi, swaying vegetation and rippling water.
+- Detail adapts to the device: strong machines climb to Ultra (4K shadows, ambient occlusion,
+  full-resolution mirror pool), weaker ones briefly lower render resolution to stay smooth.
+  The renders, video and 360° photos are full quality everywhere.
+
 ## Files
 - `build_station.py` - the procedural model (geometry, materials, scatters, trains, cameras, world, compositor)
 - `station_modes.py` - day/dusk lighting presets, shared by the build and render scripts
 - `render.py` - command-line renderer
+- `export_web.py` - exports the scene for the web viewer (quantized, gzip-compressed binary meshes and instances)
+- `web/` - the showcase page, exported model and 360° photos (`web/pano/`)
 - `renders/` - finished stills (`<camera>_<mode>.jpg`) and the fly-through

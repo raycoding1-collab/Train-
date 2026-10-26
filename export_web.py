@@ -73,7 +73,7 @@ class Pack:
         return off
 
     def write(self):
-        data = gzip.compress(b"".join(self.parts), 9)
+        data = gzip.compress(b"".join(self.parts), 9, mtime=0)   # reproducible bytes
         with open(os.path.join(OUT, self.name), "wb") as f:
             f.write(data)
         return len(data)
@@ -474,6 +474,7 @@ def map_data():
         walks=[xz(p[::3, :2]) for p in bs.walk_paths()], plaza=rect(-104, 104, 38, 118), terrace=rect(-104, 104, -59, -38),
         lawns=[rect(*r) for r in bs.LAWNS],
         guideways=[xz([[-1000, s * bs.GUIDE_Y], [1000, s * bs.GUIDE_Y]]) for s in (1, -1)],
+        oculi=[[x, -y, round(float(bs.roof_z_at(np.array(x), np.array(y))), 2), a, b] for x, y, a, b in bs.OCULI],
     )
 
 
