@@ -391,9 +391,9 @@ OCULI = [(x, y, 11.0, 9.5) for x, y in EMERGENT]
 WALK_WEST = [(-6, 11, 19.6), (-16, 12.5, 19.3), (-32, 15, 18.6), (-50, 15.5, 17.6), (-66, 12.5, 16.6),
              (-82, 13.5, 15.6), (-96, 14.5, 14.6), (-104, 14.0, 14.2)]
 WALK_EAST = [(6, 11, 19.6), (16, 12.5, 19.3), (32, 15, 18.6), (50, 15.5, 17.8), (68, 13, 17.0),
-             (86, 13.5, 16.2), (100, 10, 15.6), (107, 5, 15.4)]
+             (86, 13.5, 16.2), (98, 9, 15.8), (104, 3.5, 15.5), (108.5, -0.5, 15.4)]
 TOWER = (-104.0, 12.6)
-LOOKOUT = (110.0, 3.0, 15.4)
+LOOKOUT = (111.0, -4.8, 15.4)   # cantilevered lookout on the south bank at the east mouth
 BRIDGE_X = 6.0      # sky bridge spans x in [-6, 6]
 BRIDGE_Z = 19.6
 POOL = (0.0, 80.0, 44.0, 9.5)   # stadium: centre x, y, half length, end radius
@@ -1000,7 +1000,8 @@ def build_terrain(coll):
     guide_clear = smoothstep(5.0, 8.5, np.abs(YY - GUIDE_Y)) * smoothstep(5.0, 8.5, np.abs(YY + GUIDE_Y))
     foot = box_mask(XX, YY, -110, 110, -57, 57, 5)
     clump = smoothstep(-0.35, 0.15, NZ_FINE(XX * 0.45 + 70, YY * 0.45))
-    base = (1 - terr) * guide_clear * trail_clear * clump * smoothstep(5.5, 8.5, d) * (ay < 900)
+    stream_clear = np.where(np.abs(XX) < 280, smoothstep(10.0, 15.0, d), smoothstep(5.5, 8.5, d))  # fly-through corridor
+    base = (1 - terr) * guide_clear * trail_clear * clump * stream_clear * (ay < 900)
     forest = base * (1 - foot) * (1 - smoothstep(130, 190, ay)) * (1 - smoothstep(600, 800, np.abs(XX)))
     conifer = base * (1 - foot) * np.maximum(smoothstep(110, 170, ay), smoothstep(550, 750, np.abs(XX)))
 
@@ -1714,9 +1715,12 @@ def add_camera(name, loc, target, lens, frame, coll, dof=None):
 
 
 def fly_path():
-    pts = [(300, 70, 62), (210, 30, 34), (150, 10, 13), (118, float(stream_y(118)), 6.0)]
-    pts += [(x, float(stream_y(x)), 4.6) for x in (95, 65, 35, 5, -25, -55, -85)]
-    pts += [(-116, float(stream_y(-116)), 6.5), (-155, -10, 17), (-205, -32, 38), (-250, -48, 60)]
+    def on_stream(x, z):
+        return (x, float(stream_y(x)), z)
+
+    pts = [on_stream(300, 60), on_stream(225, 42), on_stream(170, 27), on_stream(138, 12), on_stream(118, 6.0)]
+    pts += [on_stream(x, 4.6) for x in (95, 65, 35, 5, -25, -55, -85)]
+    pts += [on_stream(-116, 7.0), on_stream(-132, 17), on_stream(-160, 34), on_stream(-200, 50), on_stream(-240, 66)]
     return catmull(pts, 0.5)
 
 
@@ -1751,16 +1755,28 @@ def build_cameras(coll, garden_ctr, garden_n):
     s /= s[-1]
     tf = np.linspace(0, 1, FRAMES)
     ease = tf * tf * (3 - 2 * tf) * 0.25 + tf * 0.75
-    prev = None
+    def yaw_pitch(v):
+        v = v / np.linalg.norm(v)
+        return math.atan2(v[1], v[0]), math.asin(float(np.clip(v[2], -1, 1)))
+
+    prev, turn = None, None
     for f, e in enumerate(ease, start=1):
         p = np.array([np.interp(e, s, path[:, i]) for i in range(3)])
         q = np.array([np.interp(min(e + 0.035, 1.0), s, path[:, i]) for i in range(3)])
         if e > 0.985:
             q = p + (p - np.array([np.interp(e - 0.03, s, path[:, i]) for i in range(3)]))
-        look = 0.0 if f < FRAMES - 70 else smoothstep(FRAMES - 70, FRAMES - 10, f)
-        tgt = q * (1 - look) + np.array([0, 0, 22]) * look
+        # look ahead along the path, then swing round (heading/pitch blend) to look back at the station
+        look = 0.0 if f < FRAMES - 75 else float(smoothstep(FRAMES - 75, FRAMES - 15, f))
+        ya, pa = yaw_pitch(q - p)
+        yb, pb = yaw_pitch(np.array([0.0, 0.0, 22.0]) - p)
+        dyaw = (yb - ya + np.pi) % (2 * np.pi) - np.pi
+        if turn is not None and abs(dyaw - turn) > np.pi:
+            dyaw += 2 * np.pi * np.sign(turn - dyaw)
+        turn = dyaw
+        yaw, pitch = ya + dyaw * look, pa + (pb - pa) * look
+        d = Vector((math.cos(pitch) * math.cos(yaw), math.cos(pitch) * math.sin(yaw), math.sin(pitch)))
         cam.location = p
-        quat = (Vector(tgt) - Vector(p)).to_track_quat("-Z", "Y")
+        quat = d.to_track_quat("-Z", "Y")
         eul = quat.to_euler("XYZ", prev) if prev is not None else quat.to_euler("XYZ")
         cam.rotation_euler = eul
         prev = eul
