@@ -4,3 +4,5 @@
 # resumable animation frames written by render.py --anim
 renders/*_frames/
 __pycache__/
+# lossless panorama masters and depth EXRs written by render_tour.py
+renders/tour/

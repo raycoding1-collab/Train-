@@ -1,0 +1,548 @@
+{
+ "eye": 1.65,
+ "spots": [
+  {
+   "id": "pool-north",
+   "label": "Reflecting pool",
+   "area": "Plaza",
+   "pos": [
+    0,
+    95,
+    13.91
+   ]
+  },
+  {
+   "id": "plaza-entry",
+   "label": "Plaza entrance",
+   "area": "Plaza",
+   "pos": [
+    0,
+    112,
+    13.91
+   ]
+  },
+  {
+   "id": "pool-south",
+   "label": "Station front",
+   "area": "Plaza",
+   "pos": [
+    0,
+    64,
+    13.91
+   ]
+  },
+  {
+   "id": "pool-west",
+   "label": "Pool, west end",
+   "area": "Plaza",
+   "pos": [
+    -56,
+    80,
+    13.91
+   ]
+  },
+  {
+   "id": "pool-east",
+   "label": "Pool, east end",
+   "area": "Plaza",
+   "pos": [
+    56,
+    80,
+    13.91
+   ]
+  },
+  {
+   "id": "concourse-24",
+   "label": "Concourse, bridge stairs",
+   "area": "Concourse",
+   "pos": [
+    -24,
+    35,
+    13.91
+   ]
+  },
+  {
+   "id": "bridge-north",
+   "label": "Sky bridge, north",
+   "area": "Sky bridge",
+   "pos": [
+    0,
+    24,
+    19.62
+   ]
+  },
+  {
+   "id": "bridge-mid",
+   "label": "Sky bridge over the stream",
+   "area": "Sky bridge",
+   "pos": [
+    0,
+    4,
+    19.62
+   ]
+  },
+  {
+   "id": "canopy4",
+   "label": "Canopy walk meets the bridge",
+   "area": "Canopy walk",
+   "pos": [
+    -14,
+    12.2,
+    19.41
+   ]
+  },
+  {
+   "id": "canopy3",
+   "label": "Canopy walk, in the treetops",
+   "area": "Canopy walk",
+   "pos": [
+    -32,
+    15.0,
+    18.6
+   ]
+  },
+  {
+   "id": "trail+0",
+   "label": "Under the sky bridge",
+   "area": "Valley trail",
+   "pos": [
+    0,
+    14.5,
+    0.11
+   ]
+  },
+  {
+   "id": "trail+20",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    20,
+    17,
+    0.65
+   ]
+  },
+  {
+   "id": "trail+40",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    40,
+    15.5,
+    0.75
+   ]
+  },
+  {
+   "id": "canopy5",
+   "label": "Canopy walk, east",
+   "area": "Canopy walk",
+   "pos": [
+    16,
+    12.5,
+    19.3
+   ]
+  },
+  {
+   "id": "canopy6",
+   "label": "Canopy walk over the stream",
+   "area": "Canopy walk",
+   "pos": [
+    40,
+    15.5,
+    18.24
+   ]
+  },
+  {
+   "id": "bridge-south",
+   "label": "Sky bridge, south",
+   "area": "Sky bridge",
+   "pos": [
+    0,
+    -16,
+    19.62
+   ]
+  },
+  {
+   "id": "platform-24",
+   "label": "South platform",
+   "area": "Platform",
+   "pos": [
+    -24,
+    -34,
+    13.91
+   ]
+  },
+  {
+   "id": "pool-southwest",
+   "label": "Under the roof edge, west",
+   "area": "Plaza",
+   "pos": [
+    -32,
+    63,
+    13.91
+   ]
+  },
+  {
+   "id": "pool-southeast",
+   "label": "Under the roof edge, east",
+   "area": "Plaza",
+   "pos": [
+    32,
+    63,
+    13.91
+   ]
+  },
+  {
+   "id": "concourse+24",
+   "label": "Concourse, east stairs",
+   "area": "Concourse",
+   "pos": [
+    24,
+    35,
+    13.91
+   ]
+  },
+  {
+   "id": "trail-20",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    -20,
+    9,
+    0.36
+   ]
+  },
+  {
+   "id": "trail-40",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    -40,
+    2.5,
+    0.25
+   ]
+  },
+  {
+   "id": "canopy2",
+   "label": "Canopy walk",
+   "area": "Canopy walk",
+   "pos": [
+    -56,
+    14.2,
+    17.22
+   ]
+  },
+  {
+   "id": "canopy7",
+   "label": "Canopy walk, oculus",
+   "area": "Canopy walk",
+   "pos": [
+    64,
+    13.2,
+    17.17
+   ]
+  },
+  {
+   "id": "trail+60",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    60,
+    13,
+    0.24
+   ]
+  },
+  {
+   "id": "trail-60",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    -60,
+    0.5,
+    0.25
+   ]
+  },
+  {
+   "id": "canopy1",
+   "label": "Canopy walk, west",
+   "area": "Canopy walk",
+   "pos": [
+    -80,
+    13.2,
+    15.72
+   ]
+  },
+  {
+   "id": "canopy8",
+   "label": "Canopy walk, far east",
+   "area": "Canopy walk",
+   "pos": [
+    88,
+    13.2,
+    16.12
+   ]
+  },
+  {
+   "id": "canopy9",
+   "label": "Lookout",
+   "area": "Lookout",
+   "pos": [
+    112,
+    -4.8,
+    15.4
+   ]
+  },
+  {
+   "id": "canopy0",
+   "label": "Stair tower",
+   "area": "Stair tower",
+   "pos": [
+    -104,
+    14.1,
+    14.2
+   ]
+  },
+  {
+   "id": "trail-80",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    -80,
+    3.5,
+    0.46
+   ]
+  },
+  {
+   "id": "trail-100",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    -100,
+    8,
+    0.95
+   ]
+  },
+  {
+   "id": "trail+80",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    80,
+    13.5,
+    0.15
+   ]
+  },
+  {
+   "id": "trail+100",
+   "label": "Valley trail",
+   "area": "Valley trail",
+   "pos": [
+    100,
+    12,
+    -0.2
+   ]
+  },
+  {
+   "id": "platform+24",
+   "label": "South platform, east stairs",
+   "area": "Platform",
+   "pos": [
+    24,
+    -34,
+    13.91
+   ]
+  },
+  {
+   "id": "platform-70",
+   "label": "South platform, west",
+   "area": "Platform",
+   "pos": [
+    -70,
+    -34,
+    13.91
+   ]
+  },
+  {
+   "id": "platform+70",
+   "label": "South platform, east",
+   "area": "Platform",
+   "pos": [
+    70,
+    -34,
+    13.91
+   ]
+  },
+  {
+   "id": "concourse-70",
+   "label": "Concourse, west",
+   "area": "Concourse",
+   "pos": [
+    -70,
+    35,
+    13.91
+   ]
+  },
+  {
+   "id": "concourse+70",
+   "label": "Concourse, east",
+   "area": "Concourse",
+   "pos": [
+    70,
+    35,
+    13.91
+   ]
+  },
+  {
+   "id": "garden-west",
+   "label": "West garden",
+   "area": "Plaza",
+   "pos": [
+    -80,
+    80,
+    13.96
+   ]
+  },
+  {
+   "id": "garden-east",
+   "label": "East garden",
+   "area": "Plaza",
+   "pos": [
+    82,
+    80,
+    13.96
+   ]
+  },
+  {
+   "id": "trail-120",
+   "label": "Forest trail",
+   "area": "Valley trail",
+   "pos": [
+    -120,
+    9.5,
+    1.13
+   ]
+  },
+  {
+   "id": "trail+120",
+   "label": "Forest trail",
+   "area": "Valley trail",
+   "pos": [
+    120,
+    9.5,
+    -0.2
+   ]
+  },
+  {
+   "id": "roof",
+   "label": "Above the roof garden",
+   "area": "Roof",
+   "pos": [
+    -36,
+    -37.1,
+    34.55
+   ]
+  }
+ ],
+ "routes": [
+  [
+   "plaza-entry",
+   "pool-north",
+   "pool-west",
+   "pool-southwest",
+   "pool-south",
+   "pool-southeast",
+   "pool-east",
+   "pool-north"
+  ],
+  [
+   "garden-west",
+   "pool-west"
+  ],
+  [
+   "garden-east",
+   "pool-east"
+  ],
+  [
+   "garden-west",
+   "concourse-70",
+   "concourse-24",
+   "concourse+24",
+   "concourse+70",
+   "garden-east"
+  ],
+  [
+   "pool-southwest",
+   "concourse-24"
+  ],
+  [
+   "pool-southeast",
+   "concourse+24"
+  ],
+  [
+   "pool-south",
+   "concourse-24"
+  ],
+  [
+   "pool-south",
+   "concourse+24"
+  ],
+  [
+   "concourse-24",
+   "bridge-north"
+  ],
+  [
+   "concourse+24",
+   "bridge-north"
+  ],
+  [
+   "bridge-north",
+   "bridge-mid",
+   "bridge-south"
+  ],
+  [
+   "bridge-south",
+   "platform-24"
+  ],
+  [
+   "bridge-south",
+   "platform+24"
+  ],
+  [
+   "platform-70",
+   "platform-24",
+   "platform+24",
+   "platform+70"
+  ],
+  [
+   "canopy0",
+   "canopy1",
+   "canopy2",
+   "canopy3",
+   "canopy4",
+   "bridge-mid",
+   "canopy5",
+   "canopy6",
+   "canopy7",
+   "canopy8",
+   "canopy9"
+  ],
+  [
+   "trail-120",
+   "trail-100",
+   "trail-80",
+   "trail-60",
+   "trail-40",
+   "trail-20",
+   "trail+0",
+   "trail+20",
+   "trail+40",
+   "trail+60",
+   "trail+80",
+   "trail+100",
+   "trail+120"
+  ],
+  [
+   "trail-100",
+   "canopy0"
+  ]
+ ]
+}
