@@ -2220,7 +2220,7 @@ window.__evsGallery.resolve({
 
 // ---------------------------------------------------------------- main loop with a frame-rate governor
 const timer = new THREE.Timer();
-let bobAmp = 0, walkPhase = 0, saveTimer = 4, landY = 0, landV = 0, lean = 0, lastYaw = 0;
+let eyeV = 0, bobAmp = 0, walkPhase = 0, saveTimer = 4, landY = 0, landV = 0, lean = 0, lastYaw = 0;
 function rememberPlace() {
   if (!stationReady || travel || ride || tour || photo) return;
   const p = player.pos;
@@ -2260,7 +2260,11 @@ function updateWorld(dt, now) {      // everything a frame does before drawing: 
   const F = comfort.fov, fovT = ride ? F + 12 : travel ? F + 2 + 22 * warpAmt : player.fly ? F + 6 : sprinting ? F + 6 : F;   // wider lens in flight, a punch during a warp jump
   if (Math.abs(camera.fov - fovT) > 0.01) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * (travel ? 8 : 3)); camera.updateProjectionMatrix(); }
   const targetY = player.pos.y + EYE;               // steps and kerbs lift the eye smoothly instead of in jumps
-  eyeY = (eyeY === null || player.fly || travel || Math.abs(targetY - eyeY) > 0.8) ? targetY : eyeY + (targetY - eyeY) * Math.min(1, dt * 16);
+  if (eyeY === null || player.fly || travel || ride || Math.abs(targetY - eyeY) > 0.8) { eyeY = targetY; eyeV = 0; }
+  else {                                            // critically damped spring: steps and slope changes become smooth S-curves
+    const w = 17, h = Math.min(dt, 1 / 30), n = Math.ceil(dt / h);
+    for (let i = 0; i < n; i++) { eyeV += ((targetY - eyeY) * w * w - 2 * w * eyeV) * (dt / n); eyeY += eyeV * (dt / n); }
+  }
   // walking rhythm: a 2 cm dip at each footfall and a hint of side-to-side sway, fading in with speed
   const walking = player.onGround && !player.fly && !travel && !ride, v = Math.hypot(player.vel.x, player.vel.z);
   bobAmp += ((walking && comfort.bob ? Math.min(1, v / 3) : 0) - bobAmp) * Math.min(1, dt * 6);
