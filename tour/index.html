@@ -1,0 +1,787 @@
+<meta charset="utf-8">
+<title>Emerald Valley Tour</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600&text=%E7%BF%A0%E8%B0%B7%E7%AB%99&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&display=swap">
+<style>
+  /* A path-traced 360-degree tour: every view is a Cycles render; moving between spots glides through the scene's own depth */
+  :root {
+    --ink: #eef2ea; --ink-2: rgba(238, 242, 234, 0.72); --ink-3: rgba(238, 242, 234, 0.5);
+    --glass: rgba(14, 24, 20, 0.58); --glass-hi: rgba(26, 40, 34, 0.72); --line: rgba(238, 242, 234, 0.12);
+    --gold: #d9a05b; --gold-ink: #1b1209;
+    --spring: cubic-bezier(0.2, 0.9, 0.25, 1.08); --ease: cubic-bezier(0.25, 0.8, 0.25, 1);
+    --r: 14px;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) { --glass: rgba(14, 24, 20, 0.6); } }
+  :root[data-theme="light"] { --glass: rgba(14, 24, 20, 0.6); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: #0b1410; color: var(--ink); overflow: hidden;
+    font: 14px/1.4 "Instrument Sans", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; outline: none; }
+  #view.dragging { cursor: grabbing; }
+  #view.go { cursor: pointer; }
+  .glass { background: var(--glass); backdrop-filter: blur(18px) saturate(1.4); -webkit-backdrop-filter: blur(18px) saturate(1.4);
+    border: 1px solid var(--line); border-radius: var(--r); box-shadow: 0 10px 40px rgba(0, 0, 0, 0.28); }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  .i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; display: block; }
+
+  #title { position: fixed; left: 14px; top: 14px; padding: 9px 14px 9px 12px; display: flex; gap: 10px; align-items: center; z-index: 3;
+    transition: transform 0.5s var(--spring), opacity 0.4s; max-width: calc(100vw - 200px); }
+  #title .zh { font-family: "Noto Serif SC", serif; font-weight: 600; color: var(--gold); font-size: 15px; letter-spacing: 0.04em; }
+  #title b { font-weight: 600; white-space: nowrap; }
+  #where { color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity 0.3s; }
+  #tools { position: fixed; right: 14px; top: 14px; display: flex; gap: 2px; padding: 5px; z-index: 3; transition: transform 0.5s var(--spring), opacity 0.4s; }
+  #tools button { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--ink-2);
+    transition: background 0.2s, color 0.2s, transform 0.3s var(--spring); }
+  #tools button:hover { background: rgba(238, 242, 234, 0.1); color: var(--ink); }
+  #tools button:active { transform: scale(0.92); }
+  #tools button[aria-pressed="true"] { background: var(--gold); color: var(--gold-ink); }
+
+  #dock { position: fixed; left: 50%; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 3;
+    display: flex; gap: 4px; padding: 5px; max-width: calc(100vw - 24px); overflow-x: auto; scrollbar-width: none;
+    transition: transform 0.55s var(--spring), opacity 0.4s; }
+  #dock::-webkit-scrollbar { display: none; }
+  #dock button { white-space: nowrap; padding: 8px 13px; border-radius: 10px; color: var(--ink-2); font-weight: 500;
+    transition: background 0.25s, color 0.25s, transform 0.3s var(--spring); position: relative; }
+  #dock button:hover { background: rgba(238, 242, 234, 0.1); color: var(--ink); }
+  #dock button:active { transform: scale(0.95); }
+  #dock button.here { background: rgba(217, 160, 91, 0.18); color: var(--ink); }
+  #dock button.here::after { content: ""; position: absolute; left: 50%; bottom: 3px; width: 14px; height: 2px; margin-left: -7px; border-radius: 2px; background: var(--gold); }
+  #dock button:disabled { opacity: 0.38; cursor: default; }
+
+  #map { position: fixed; left: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 3; padding: 0; overflow: hidden;
+    width: 236px; height: 170px; transition: transform 0.5s var(--spring), opacity 0.4s, width 0.45s var(--ease), height 0.45s var(--ease); }
+  #map canvas { width: 100%; height: 100%; display: block; cursor: pointer; }
+  #map.big { width: min(560px, calc(100vw - 28px)); height: min(400px, calc(100vh - 120px)); }
+  #map-size { position: absolute; right: 6px; top: 6px; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+    background: rgba(10, 18, 14, 0.6); color: var(--ink-2); }
+  #map-size:hover { color: var(--ink); }
+
+  #tip { position: fixed; z-index: 4; pointer-events: none; padding: 6px 10px; border-radius: 9px; font-size: 13px; font-weight: 500;
+    background: rgba(10, 18, 14, 0.78); border: 1px solid var(--line); transform: translate(-50%, calc(-100% - 14px)); opacity: 0;
+    transition: opacity 0.18s; white-space: nowrap; }
+  #tip.on { opacity: 1; }
+  #tip small { display: block; color: var(--ink-3); font-weight: 400; font-size: 12px; }
+
+  #hint { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); transform: translate(-50%, 10px); z-index: 3;
+    padding: 8px 14px; border-radius: 999px; font-size: 13px; color: var(--ink-2); opacity: 0; pointer-events: none;
+    transition: opacity 0.5s, transform 0.6s var(--spring); white-space: nowrap; }
+  #hint.on { opacity: 1; transform: translate(-50%, 0); }
+
+  #help { position: fixed; left: 50%; top: 50%; z-index: 6; width: min(460px, calc(100vw - 28px)); padding: 22px 24px 18px;
+    transform: translate(-50%, -46%) scale(0.95); opacity: 0; pointer-events: none; transition: opacity 0.3s, transform 0.5s var(--spring); }
+  #help.open { transform: translate(-50%, -50%) scale(1); opacity: 1; pointer-events: auto; }
+  #help h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+  #help p { margin: 0 0 14px; color: var(--ink-2); }
+  #help dl { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0 0 16px; }
+  #help dt { color: var(--ink); font-weight: 500; white-space: nowrap; }
+  #help dd { margin: 0; color: var(--ink-2); }
+  #help-close { width: 100%; padding: 10px; border-radius: 10px; background: var(--gold); color: var(--gold-ink); font-weight: 600; }
+  kbd { font: 500 12px "Instrument Sans", sans-serif; padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line); background: rgba(238, 242, 234, 0.08); }
+
+  #veil { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; background: #0b1410; transition: opacity 0.9s var(--ease); }
+  #veil.gone { opacity: 0; pointer-events: none; }
+  #veil-img { position: absolute; inset: 0; background-size: cover; background-position: center; filter: blur(24px) saturate(1.2); opacity: 0;
+    transform: scale(1.08); transition: opacity 1.2s, transform 2.4s var(--ease); }
+  #veil-img.on { opacity: 0.55; transform: scale(1.02); }
+  .veil-card { position: relative; text-align: center; padding: 26px 30px; min-width: 260px; }
+  .veil-card .zh { font-family: "Noto Serif SC", serif; color: var(--gold); font-size: 22px; letter-spacing: 0.08em; }
+  .veil-card h1 { margin: 2px 0 6px; font-size: 22px; font-weight: 600; }
+  .veil-card p { margin: 0 0 16px; color: var(--ink-2); }
+  .bar { height: 3px; border-radius: 3px; background: rgba(238, 242, 234, 0.12); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--gold); transition: width 0.3s var(--ease); }
+
+  #fade { position: fixed; inset: 0; z-index: 2; background: #0b1410; opacity: 0; pointer-events: none; transition: opacity 0.35s var(--ease); }
+  #fade.on { opacity: 1; }
+  body.tour #title, body.tour #map { transform: translateY(-8px); opacity: 0; pointer-events: none; }
+  body.tour #map { transform: translateY(8px); }
+  body.tour #dock { transform: translate(-50%, 90px); }
+  body.tour #tools button:not(#btn-tour) { opacity: 0.35; }
+  @media (max-width: 640px) {
+    #map { width: 150px; height: 108px; }
+    #title { max-width: calc(100vw - 150px); }
+    #title .zh { display: none; }
+    #hint { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 32px); }
+    #dock { left: 12px; right: 12px; transform: none; max-width: none; }
+    body.tour #dock { transform: translateY(90px); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition-duration: 0.01s !important; } }
+</style>
+
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l10.5-6.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.3a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2 1-1.2 1.9M12 16.6v.1"/></symbol>
+  <symbol id="i-grow" viewBox="0 0 24 24"><path d="M14 4h6v6M10 20H4v-6M20 4l-7 7M4 20l7-7"/></symbol>
+  <symbol id="i-shrink" viewBox="0 0 24 24"><path d="M20 10h-6V4M4 14h6v6M14 10l7-7M10 14l-7 7"/></symbol>
+</svg>
+
+<canvas id="view" tabindex="0" aria-label="360-degree view. Drag to look around; click a ring on the ground to walk there."></canvas>
+<div id="fade"></div>
+<header id="title" class="glass"><span class="zh">翠谷站</span><b>Emerald Valley</b><span id="where"></span></header>
+<div id="tools" class="glass">
+  <button id="btn-tour" aria-pressed="false" title="Guided tour (P)" aria-label="Guided tour"><svg class="i"><use href="#i-play"/></svg></button>
+  <button id="btn-full" title="Full screen (F)" aria-label="Full screen"><svg class="i"><use href="#i-full"/></svg></button>
+  <button id="btn-help" title="How to move (H)" aria-label="How to move"><svg class="i"><use href="#i-help"/></svg></button>
+</div>
+<nav id="dock" class="glass" aria-label="Places"></nav>
+<div id="map" class="glass"><canvas aria-label="Map: click a dot to go there"></canvas><button id="map-size" aria-label="Larger map"><svg class="i" style="width:15px;height:15px"><use href="#i-grow"/></svg></button></div>
+<div id="tip"></div>
+<div id="hint" class="glass"></div>
+<section id="help" class="glass" role="dialog" aria-modal="true" aria-labelledby="help-h">
+  <h2 id="help-h">Walking through the station</h2>
+  <p>Every view is a path-traced render of the model. Gliding between spots moves through the scene's real depth.</p>
+  <dl>
+    <dt>Look around</dt><dd>Drag, or <kbd>←</kbd> <kbd>→</kbd> and <kbd>A</kbd> <kbd>D</kbd></dd>
+    <dt>Walk</dt><dd>Click a glowing ring or the ground, or <kbd>W</kbd> / <kbd>↑</kbd> forward, <kbd>S</kbd> / <kbd>↓</kbd> back</dd>
+    <dt>Zoom</dt><dd>Scroll or pinch</dd>
+    <dt>Go further</dt><dd>Places along the bottom, or click a dot on the map</dd>
+    <dt>Guided tour</dt><dd><kbd>P</kbd>, or the play button; any key or drag hands control back</dd>
+  </dl>
+  <button id="help-close">Start exploring</button>
+</section>
+<div id="veil">
+  <div id="veil-img"></div>
+  <div class="veil-card glass">
+    <div class="zh">翠谷站</div>
+    <h1>Emerald Valley Station</h1>
+    <p id="veil-msg">Loading the first view</p>
+    <div class="bar"><i id="veil-bar"></i></div>
+  </div>
+</div>
+
+<script type="importmap">{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js" } }</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ---------------------------------------------------------------- data: spots, routes, which spots are rendered
+const $ = (id) => document.getElementById(id);
+const NEAR = 0.3, FAR = 3000;                               // inverse-depth range of the depth maps (render_tour.py)
+const [plan, ready] = await Promise.all([fetch('spots.json').then((r) => r.json()), fetch('ready.json').then((r) => r.json()).catch(() => [])]);
+const EYE = plan.eye, isReady = new Set(ready);
+const spots = new Map();
+for (const s of plan.spots) {
+  const [x, y, z] = s.pos;
+  spots.set(s.id, { ...s, eye: new THREE.Vector3(x, z + EYE, -y), floor: new THREE.Vector3(x, z, -y), links: new Set(), ready: isReady.has(s.id) });
+}
+for (const r of plan.routes) for (let i = 1; i < r.length; i++) { spots.get(r[i - 1]).links.add(r[i]); spots.get(r[i]).links.add(r[i - 1]); }
+const live = [...spots.values()].filter((s) => s.ready);
+// links between rendered spots, bridging over spots that are not rendered yet
+function neighbours(s) {
+  const out = new Set(), seen = new Set([s.id]), queue = [...s.links];
+  while (queue.length) {
+    const id = queue.shift(); if (seen.has(id)) continue; seen.add(id);
+    const n = spots.get(id);
+    if (n.ready) out.add(n); else queue.push(...n.links);
+  }
+  return [...out];
+}
+function pathTo(a, b) {                                      // shortest walk over rendered spots (Dijkstra on distance)
+  const dist = new Map([[a.id, 0]]), prev = new Map(), open = new Set([a.id]);
+  while (open.size) {
+    let cur = null; for (const id of open) if (cur === null || dist.get(id) < dist.get(cur)) cur = id;
+    open.delete(cur); if (cur === b.id) break;
+    const c = spots.get(cur);
+    for (const n of neighbours(c)) {
+      const d = dist.get(cur) + c.eye.distanceTo(n.eye);
+      if (d < (dist.get(n.id) ?? Infinity)) { dist.set(n.id, d); prev.set(n.id, cur); open.add(n.id); }
+    }
+  }
+  if (!prev.has(b.id)) return null;
+  const path = [b]; let id = b.id; while (prev.has(id)) { id = prev.get(id); path.unshift(spots.get(id)); }
+  return path;
+}
+
+// ---------------------------------------------------------------- renderer
+const canvas = $('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+const maxTex = renderer.capabilities.maxTextureSize;
+const SMALL = Math.max(screen.width, screen.height) * Math.min(devicePixelRatio, 2) <= 1500 || maxTex < 8192;
+const FULL = !SMALL;                                          // laptops and desktops get the 6144-pixel panoramas
+const GRID = SMALL ? [256, 128] : [384, 192];                 // depth mesh resolution for the glide
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.autoClear = false;
+const camera = new THREE.PerspectiveCamera(72, 1, 0.1, 8000);
+camera.rotation.order = 'YXZ';
+const view = { yaw: 0, pitch: 0, fov: 72, vYaw: 0, vPitch: 0, targetFov: 72 };
+function resize() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+  const pr = renderer.getPixelRatio();
+  for (const rt of [rtA, rtB]) rt.setSize(Math.round(w * pr), Math.round(h * pr));
+  drawMap();
+}
+
+// equirectangular lookup shared by every shader: image centre faces +x, the image runs toward +z, row 0 is straight up
+const EQ = `vec2 eq(vec3 d) { return vec2(atan(d.z, d.x) * 0.15915494 + 0.5, 0.5 - asin(clamp(d.y, -1.0, 1.0)) * 0.31830989); }`;
+const quad = new THREE.BufferGeometry();
+quad.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3));
+const screenVS = `varying vec2 vNdc; void main() { vNdc = position.xy; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+const rayFS = `uniform mat4 uInvPV; vec3 ray(vec2 ndc) { vec4 p = uInvPV * vec4(ndc, 1.0, 1.0); return normalize(p.xyz / p.w); }`;
+// resting view: the panorama itself, looked up per pixel (no sphere mesh: exact at every angle); a second panorama fades over it when it sharpens
+const panoMat = new THREE.ShaderMaterial({
+  uniforms: { uTex: { value: null }, uTex2: { value: null }, uMix: { value: 0 }, uInvPV: { value: new THREE.Matrix4() } },
+  vertexShader: screenVS, depthTest: false, depthWrite: false,
+  fragmentShader: `${EQ} ${rayFS} uniform sampler2D uTex, uTex2; uniform float uMix; varying vec2 vNdc;
+    void main() { vec2 uv = eq(ray(vNdc)); vec3 c = texture2D(uTex, uv).rgb; if (uMix > 0.0) c = mix(c, texture2D(uTex2, uv).rgb, uMix); gl_FragColor = vec4(c, 1.0); }`,
+});
+const panoQuad = new THREE.Mesh(quad, panoMat); panoQuad.frustumCulled = false;
+const panoScene = new THREE.Scene(); panoScene.add(panoQuad);
+const screenCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+// gliding: each spot's panorama wrapped on its own depth, drawn into its own target, then blended
+const rtOpts = { depthBuffer: true, type: THREE.UnsignedByteType };
+const rtA = new THREE.WebGLRenderTarget(4, 4, rtOpts), rtB = new THREE.WebGLRenderTarget(4, 4, rtOpts);
+const meshMat = (tex, eye) => new THREE.ShaderMaterial({
+  uniforms: { uTex: { value: tex }, uEye: { value: eye } }, side: THREE.DoubleSide,
+  vertexShader: `uniform vec3 uEye; varying vec3 vRel; void main() { vRel = position - uEye; gl_Position = projectionMatrix * viewMatrix * vec4(position, 1.0); }`,
+  fragmentShader: `${EQ} uniform sampler2D uTex; varying vec3 vRel; void main() { gl_FragColor = vec4(texture2D(uTex, eq(normalize(vRel))).rgb, 1.0); }`,
+});
+const blendMat = new THREE.ShaderMaterial({
+  uniforms: { tA: { value: rtA.texture }, tB: { value: rtB.texture }, uW: { value: 0 }, uPA: { value: null }, uPB: { value: null }, uInvPV: { value: new THREE.Matrix4() } },
+  vertexShader: screenVS, depthTest: false, depthWrite: false,
+  fragmentShader: `${EQ} ${rayFS} uniform sampler2D tA, tB, uPA, uPB; uniform float uW; varying vec2 vNdc;
+    void main() {
+      vec2 st = vNdc * 0.5 + 0.5;
+      vec4 a = texture2D(tA, st), b = texture2D(tB, st);
+      float wa = a.a * (1.0 - uW), wb = b.a * uW, s = wa + wb;
+      vec2 uv = eq(ray(vNdc));
+      vec3 far = mix(texture2D(uPA, uv).rgb, texture2D(uPB, uv).rgb, uW);     // where neither spot saw the surface: the panoramas at infinity
+      gl_FragColor = vec4(s > 0.001 ? (a.rgb * wa + b.rgb * wb) / s : far, 1.0);
+    }`,
+});
+const blendQuad = new THREE.Mesh(quad, blendMat); blendQuad.frustumCulled = false;
+const blendScene = new THREE.Scene(); blendScene.add(blendQuad);
+const sceneA = new THREE.Scene(), sceneB = new THREE.Scene();
+
+// ---------------------------------------------------------------- loading: panoramas (two sizes) and depth meshes, cached
+const texCache = new Map();          // url -> Promise<Texture>
+const texUse = new Map();            // url -> last use (for evicting full-size panoramas)
+function loadTex(url) {
+  texUse.set(url, performance.now());
+  if (!texCache.has(url)) {
+    texCache.set(url, fetch(url).then((r) => { if (!r.ok) throw new Error(url); return r.blob(); })
+      .then((b) => createImageBitmap(b, { imageOrientation: 'none', premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+      .then((bmp) => {
+        const t = new THREE.Texture(bmp);
+        t.flipY = false; t.generateMipmaps = false; t.minFilter = t.magFilter = THREE.LinearFilter;
+        t.wrapS = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace; t.needsUpdate = true;
+        renderer.initTexture(t);                                // upload now, not on the first frame that needs it
+        bmp.close?.();                                          // the GPU copy is all that is needed from here on
+        t.userData.url = url; texDone.add(url);
+        return t;
+      }).catch((e) => { texCache.delete(url); throw e; }));
+    evict();
+  }
+  return texCache.get(url);
+}
+function evict() {                                          // keep at most four full-size panoramas on the GPU
+  const full = [...texCache.keys()].filter((u) => !u.includes('_mid')).sort((a, b) => texUse.get(a) - texUse.get(b));
+  while (full.length > 4) {
+    const u = full.shift(); if (cur && (u === fullUrl(cur))) continue;
+    texCache.get(u).then((t) => t.dispose()).catch(() => {}); texCache.delete(u); texDone.delete(u);
+  }
+}
+const midUrl = (s) => `pano/${s.id}_mid.webp`, fullUrl = (s) => FULL ? `pano/${s.id}.webp` : midUrl(s);
+const texDone = new Set();          // urls whose texture is decoded and on the GPU
+const best = (s) => texDone.has(fullUrl(s)) ? loadTex(fullUrl(s)) : loadTex(midUrl(s));
+
+const depthCache = new Map();        // id -> Promise<{ w, h, inv: Float32Array }>
+function loadDepth(s) {
+  if (!depthCache.has(s.id)) {
+    depthCache.set(s.id, fetch(`depth/${s.id}.png`).then((r) => r.blob())
+      .then((b) => createImageBitmap(b, { premultiplyAlpha: 'none', colorSpaceConversion: 'none' }))
+      .then((bmp) => {
+        const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+        const ctx = c.getContext('2d', { willReadFrequently: true }); ctx.drawImage(bmp, 0, 0);
+        const px = ctx.getImageData(0, 0, c.width, c.height).data, n = c.width * c.height, inv = new Float32Array(n);
+        const k = 1 / NEAR - 1 / FAR;
+        for (let i = 0; i < n; i++) inv[i] = ((px[i * 4] * 256 + px[i * 4 + 1]) / 65535) * k + 1 / FAR;
+        return { w: c.width, h: c.height, inv };
+      }));
+  }
+  return depthCache.get(s.id);
+}
+function dirOf(u, v, out) {                                 // image coordinates (0..1) -> direction, the inverse of eq()
+  const lon = (u - 0.5) * Math.PI * 2, lat = (0.5 - v) * Math.PI;
+  return out.set(Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon));
+}
+function depthAt(D, dir) {                                  // metres along a direction from the spot's eye
+  const u = Math.atan2(dir.z, dir.x) / (Math.PI * 2) + 0.5, v = 0.5 - Math.asin(Math.max(-1, Math.min(1, dir.y))) / Math.PI;
+  const x = Math.min(D.w - 1, Math.max(0, Math.floor(u * D.w))), y = Math.min(D.h - 1, Math.max(0, Math.floor(v * D.h)));
+  return 1 / D.inv[y * D.w + x];
+}
+const meshCache = new Map();         // id -> Promise<BufferGeometry>
+function depthMesh(s) {              // a sphere of vertices pushed out to the rendered depth; torn where depth jumps (no rubber sheets)
+  if (!meshCache.has(s.id)) {
+    meshCache.set(s.id, loadDepth(s).then((D) => {
+      const [W, H] = GRID, pos = new Float32Array((W + 1) * (H + 1) * 3), inv = new Float32Array((W + 1) * (H + 1)), d = new THREE.Vector3();
+      for (let j = 0; j <= H; j++) for (let i = 0; i <= W; i++) {
+        const u = i / W, v = j / H, k = j * (W + 1) + i;
+        const x = Math.min(D.w - 1, Math.floor(u * D.w)), y = Math.min(D.h - 1, Math.floor(v * D.h));
+        const q = D.inv[y * D.w + x]; inv[k] = q;
+        dirOf(u, v, d).multiplyScalar(1 / q).add(s.eye);
+        pos[k * 3] = d.x; pos[k * 3 + 1] = d.y; pos[k * 3 + 2] = d.z;
+      }
+      const idx = [];
+      const tear = (a, b) => { const lo = Math.min(inv[a], inv[b]), hi = Math.max(inv[a], inv[b]); return hi - lo > 0.0025 && hi / lo > 1.3; };
+      for (let j = 0; j < H; j++) for (let i = 0; i < W; i++) {
+        const a = j * (W + 1) + i, b = a + 1, c = a + W + 1, e = c + 1;
+        if (!(tear(a, b) || tear(a, c) || tear(b, e) || tear(c, e) || tear(a, e))) idx.push(a, c, b, b, c, e);
+      }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      g.setIndex(idx);
+      return g;
+    }));
+  }
+  return meshCache.get(s.id);
+}
+function prepare(s) { return Promise.all([best(s), depthMesh(s)]); }
+function prefetch(s) {               // neighbours: depth and the 3072 panorama; the most likely next spot also at full size
+  for (const n of neighbours(s)) { loadTex(midUrl(n)).catch(() => {}); depthMesh(n); }
+}
+
+// ---------------------------------------------------------------- spot markers: soft rings on the ground at each neighbour
+const ringTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  const grd = g.createRadialGradient(128, 128, 60, 128, 128, 126);
+  grd.addColorStop(0, 'rgba(255,255,255,0)'); grd.addColorStop(0.55, 'rgba(255,255,255,0.10)'); grd.addColorStop(0.8, 'rgba(255,255,255,0.95)'); grd.addColorStop(0.9, 'rgba(255,255,255,0.6)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.NoColorSpace; return t;
+})();
+const markScene = new THREE.Scene();
+const ringGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+const markers = [];
+const cursorRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, depthTest: false, depthWrite: false, color: 0xffffff, opacity: 0 }));
+cursorRing.renderOrder = 2; markScene.add(cursorRing);
+function placeMarkers() {
+  for (const m of markers) { markScene.remove(m); m.material.dispose(); }
+  markers.length = 0;
+  if (!cur) return;
+  for (const n of neighbours(cur)) {
+    const m = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, depthTest: false, depthWrite: false, color: 0xf3d6ad, opacity: 0 }));
+    m.userData.spot = n; m.position.copy(n.floor).add(new THREE.Vector3(0, 0.03, 0));
+    m.userData.size = THREE.MathUtils.clamp(cur.eye.distanceTo(n.eye) * 0.07, 0.9, 1.8);
+    m.scale.setScalar(m.userData.size);
+    m.userData.hidden = false;
+    markScene.add(m); markers.push(m);
+  }
+  checkVisibility();
+}
+async function checkVisibility() {   // a ring behind a wall stays hidden: compare with the depth the panorama saw in that direction
+  const D = await loadDepth(cur), d = new THREE.Vector3();
+  for (const m of markers) {
+    d.copy(m.position).sub(cur.eye); const dist = d.length(); d.normalize();
+    m.userData.hidden = depthAt(D, d) < dist - 1.5;
+  }
+}
+
+// ---------------------------------------------------------------- moving: a glide through depth from one spot to the next (or a chain of them)
+let cur = null, moving = null, hover = null, restMix = null;
+const ease = (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+async function show(s, look) {       // jump without gliding (first view, or no route): a quick dip through dark
+  const first = !cur;
+  if (!first) { $('fade').classList.add('on'); await wait(360); }
+  const [tex] = await prepare(s);
+  cur = s; panoMat.uniforms.uTex.value = tex; panoMat.uniforms.uMix.value = 0;
+  if (look !== undefined) { view.yaw = look; view.pitch = 0; }
+  arrived();
+  if (!first) $('fade').classList.remove('on');
+}
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+async function go(path) {            // path: list of spots starting at the current one
+  if (moving || path.length < 2) return;
+  const legs = path.slice(1);
+  moving = { legs, i: 0, t: 0, from: path[0], busy: true };
+  hideTip(); cursorRing.material.opacity = 0;
+  for (const m of markers) m.material.opacity = 0;
+  try { await Promise.all(path.map((s) => prepare(s))); } catch (e) { moving = null; return; }
+  loadTex(fullUrl(legs[legs.length - 1])).catch(() => {});
+  moving.busy = false;
+  startLeg();
+}
+async function startLeg() {
+  const M = moving, a = M.i === 0 ? M.from : M.legs[M.i - 1], b = M.legs[M.i];
+  const [[ta, ga], [tb, gb]] = await Promise.all([prepare(a), prepare(b)]);
+  sceneA.clear(); sceneB.clear();
+  M.ma = new THREE.Mesh(ga, meshMat(ta, a.eye)); M.mb = new THREE.Mesh(gb, meshMat(tb, b.eye));
+  for (const m of [M.ma, M.mb]) m.frustumCulled = false;
+  sceneA.add(M.ma); sceneB.add(M.mb);
+  blendMat.uniforms.uPA.value = ta; blendMat.uniforms.uPB.value = tb;
+  const dist = a.eye.distanceTo(b.eye), n = M.legs.length;
+  M.dur = n > 1 ? THREE.MathUtils.clamp(0.42 + dist * 0.028, 0.6, 1.1) : THREE.MathUtils.clamp(0.7 + dist * 0.032, 0.85, 1.6);
+  M.a = a; M.b = b; M.t = 0;
+  // turn toward where we are going when it is well off to the side (as you would when you walk somewhere)
+  const dir = b.eye.clone().sub(a.eye), heading = Math.atan2(-dir.x, -dir.z);
+  let dy = heading - view.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+  M.yaw0 = view.yaw; M.dyaw = M.keepFacing ? 0 : (n > 1 || Math.abs(dy) > 0.6) ? dy * (Math.abs(dy) > 2.4 ? 0 : 1) : 0;
+  M.pitch0 = view.pitch;
+  sharpenTimer = 0;
+}
+function stepMove(dt) {
+  const M = moving; if (!M || M.busy || !M.mb) return;
+  M.t = Math.min(1, M.t + dt / M.dur);
+  const first = M.i === 0, last = M.i === M.legs.length - 1;
+  // the chain eases in on its first leg and out on its last; the legs between run at an even pace
+  const p = first && last ? ease(M.t) : first ? easeIn(M.t) : last ? easeOut(M.t) : M.t;
+  camera.position.lerpVectors(M.a.eye, M.b.eye, p);
+  const turn = smooth(0, 0.85, p);
+  view.yaw = M.yaw0 + M.dyaw * turn;
+  if (M.dyaw) view.pitch = M.pitch0 * (1 - turn * 0.7);
+  blendMat.uniforms.uW.value = smooth(0.12, 0.88, p);
+  if (M.t >= 1) {
+    if (!last) { M.i++; startLeg(); return; }
+    cur = M.b; moving = null;
+    panoMat.uniforms.uTex.value = M.mb.material.uniforms.uTex.value; panoMat.uniforms.uMix.value = 0;
+    for (const m of [M.ma, M.mb]) m.material.dispose();
+    sceneA.clear(); sceneB.clear();
+    arrived();
+  }
+}
+const easeIn = (t) => t * t * (2 - t);            // from rest to the even pace of the legs between (slope 1 at the end)
+const easeOut = (t) => 1 - easeIn(1 - t);
+let sharpenTimer = 0;
+async function arrived() {
+  camera.position.copy(cur.eye);
+  placeMarkers(); prefetch(cur); updatePlace(); drawMap(); remember();
+  // the 3072 panorama shows first; the full-size one fades in when it has arrived
+  const s = cur, u = fullUrl(s);
+  if (panoMat.uniforms.uTex.value?.userData.url !== u) {
+    loadTex(u).then((t) => { if (cur !== s || moving) return; panoMat.uniforms.uTex2.value = t; restMix = { t: 0 }; }).catch(() => {});
+  }
+  // standing still for a moment: fetch the full-size panorama of the spot you are facing
+  clearTimeout(aheadTimer);
+  aheadTimer = setTimeout(() => { const n = !moving && cur === s && bestNeighbour(view.yaw); if (n && FULL) loadTex(fullUrl(n)).catch(() => {}); }, 1500);
+}
+let aheadTimer = null;
+
+// ---------------------------------------------------------------- choosing where to go
+function bestNeighbour(dirYaw, within = 0.9) {               // the neighbour closest to a heading (radians, 0 = -z)
+  let pick = null, bestA = within;
+  for (const m of markers) {
+    const n = m.userData.spot, d = n.eye.clone().sub(cur.eye), h = Math.atan2(-d.x, -d.z);
+    let a = Math.abs(Math.atan2(Math.sin(h - dirYaw), Math.cos(h - dirYaw)));
+    a += m.userData.hidden ? 0.25 : 0;
+    if (a < bestA) { bestA = a; pick = n; }
+  }
+  return pick;
+}
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), tmp = new THREE.Vector3();
+function pointerRay(x, y) { ndc.set((x / innerWidth) * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.ray.direction; }
+function markerAt(x, y) {
+  const dir = pointerRay(x, y);
+  let pick = null, bestD = Infinity;
+  for (const m of markers) {
+    if (m.userData.hidden && m.position.distanceTo(cur.eye) > 6) continue;
+    tmp.copy(m.position).sub(cur.eye);
+    const along = tmp.dot(dir); if (along <= 0) continue;
+    const off = tmp.clone().addScaledVector(dir, -along).length() / along;     // angular offset
+    const lim = Math.max(0.035, m.userData.size * 0.75 / tmp.length());
+    if (off < lim && off * tmp.length() < bestD) { bestD = off * tmp.length(); pick = m; }
+  }
+  return pick;
+}
+let depthNow = null;
+function groundAt(x, y) {           // the surface under the pointer, from the current spot's depth map
+  if (!depthNow || depthNow.id !== cur.id) return null;
+  const dir = pointerRay(x, y).clone();
+  const D = depthNow.D, d = depthAt(D, dir);
+  if (d > 60 || dir.y > -0.02) return null;
+  const p = cur.eye.clone().addScaledVector(dir, d);
+  if (p.y > cur.eye.y - 0.6) return null;                    // walls and railings are not somewhere to stand
+  return p;
+}
+function nearestTo(p) {              // the neighbour closest to a point on the ground, if any is reasonably close
+  let pick = null, bestD = Infinity;
+  for (const m of markers) {
+    const n = m.userData.spot, dist = Math.hypot(n.floor.x - p.x, n.floor.z - p.z) + Math.abs(n.floor.y - p.y) * 2;
+    if (dist < bestD) { bestD = dist; pick = n; }
+  }
+  const range = p.distanceTo(cur.eye);
+  return bestD < Math.max(9, range * 0.6) ? pick : null;
+}
+
+// ---------------------------------------------------------------- input: drag with inertia, keys, wheel and pinch zoom
+const keys = new Set();
+let drag = null, lastMove = 0, idleT = 0;
+const pointers = new Map();
+canvas.addEventListener('pointerdown', (e) => {
+  canvas.setPointerCapture(e.pointerId); pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  stopTour();
+  if (pointers.size === 2) { const [p, q] = [...pointers.values()]; drag = { pinch: Math.hypot(p.x - q.x, p.y - q.y), fov: view.targetFov }; return; }
+  drag = { x: e.clientX, y: e.clientY, x0: e.clientX, y0: e.clientY, t: performance.now(), moved: 0 };
+  view.vYaw = view.vPitch = 0;
+});
+canvas.addEventListener('pointermove', (e) => {
+  lastMove = performance.now(); idleT = 0;
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (drag && drag.pinch && pointers.size === 2) {
+    const [p, q] = [...pointers.values()]; view.targetFov = THREE.MathUtils.clamp(drag.fov * drag.pinch / Math.max(20, Math.hypot(p.x - q.x, p.y - q.y)), 30, 95); return;
+  }
+  if (drag && !drag.pinch) {
+    const k = (view.fov / innerHeight) * (Math.PI / 180), dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    view.yaw += dx * k; view.pitch = THREE.MathUtils.clamp(view.pitch + dy * k, -1.45, 1.45);
+    const now = performance.now(), dtm = Math.max(1, now - drag.t);
+    view.vYaw = view.vYaw * 0.5 + (dx * k / dtm) * 1000 * 0.5; view.vPitch = view.vPitch * 0.5 + (dy * k / dtm) * 1000 * 0.5;
+    drag.x = e.clientX; drag.y = e.clientY; drag.t = now; drag.moved += Math.abs(dx) + Math.abs(dy);
+    canvas.classList.toggle('dragging', drag.moved > 4);
+    return;
+  }
+  hoverAt(e.clientX, e.clientY);
+});
+const endDrag = (e) => {
+  pointers.delete(e.pointerId);
+  if (!drag) return;
+  const wasPinch = !!drag.pinch, click = !wasPinch && drag.moved < 6 && e.type === 'pointerup';
+  if (performance.now() - drag.t > 60) view.vYaw = view.vPitch = 0;           // released after holding still: no fling
+  canvas.classList.remove('dragging');
+  drag = pointers.size ? drag : null;
+  if (click) clickAt(e.clientX, e.clientY);
+};
+canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
+canvas.addEventListener('pointerleave', () => { hideTip(); hover = null; cursorRing.material.opacity = 0; canvas.classList.remove('go'); });
+canvas.addEventListener('wheel', (e) => { e.preventDefault(); stopTour(); view.targetFov = THREE.MathUtils.clamp(view.targetFov * Math.exp(e.deltaY * 0.0012), 30, 95); }, { passive: false });
+function hoverAt(x, y) {
+  if (moving || !cur) return;
+  const m = markerAt(x, y);
+  hover = m ? m.userData.spot : null;
+  if (hover) {
+    cursorRing.material.opacity = 0; canvas.classList.add('go');
+    showTip(x, y, hover.label, hover.area !== cur.area ? hover.area : '');
+    return;
+  }
+  hideTip();
+  const p = groundAt(x, y), n = p && nearestTo(p);
+  if (p && n) {
+    cursorRing.position.copy(p).add(tmp.set(0, 0.03, 0));
+    cursorRing.scale.setScalar(THREE.MathUtils.clamp(p.distanceTo(cur.eye) * 0.06, 0.35, 1.4));
+    cursorRing.userData.target = n; cursorRing.material.opacity = 0.55; canvas.classList.add('go');
+  } else { cursorRing.material.opacity = 0; cursorRing.userData.target = null; canvas.classList.remove('go'); }
+}
+function clickAt(x, y) {
+  if (moving || !cur) return;
+  const m = markerAt(x, y);
+  if (m) return go([cur, m.userData.spot]);
+  if (cursorRing.material.opacity > 0 && cursorRing.userData.target) return go([cur, cursorRing.userData.target]);
+  const d = pointerRay(x, y), n = bestNeighbour(Math.atan2(-d.x, -d.z), 0.35);
+  if (n && d.y < 0.35) go([cur, n]);
+}
+function showTip(x, y, a, b) { const t = $('tip'); t.innerHTML = b ? `${a}<small>${b}</small>` : a; t.style.left = `${x}px`; t.style.top = `${y}px`; t.classList.add('on'); }
+function hideTip() { $('tip').classList.remove('on'); }
+addEventListener('keydown', (e) => {
+  if (e.target.closest && e.target.closest('input, textarea')) return;
+  if ($('help').classList.contains('open')) { if (e.key === 'Escape' || e.key === 'Enter') closeHelp(); return; }
+  const k = e.code;
+  if (k === 'KeyP') { toggleTour(); return; }
+  if (k === 'KeyH') { openHelp(); return; }
+  if (k === 'KeyF' && !e.metaKey && !e.ctrlKey) { toggleFull(); return; }
+  if (k === 'KeyM') { $('map').classList.toggle('big'); setTimeout(drawMap, 460); return; }
+  stopTour();
+  keys.add(k); idleT = 0;
+  if (['KeyW', 'ArrowUp'].includes(k)) { e.preventDefault(); const n = !moving && cur && bestNeighbour(view.yaw); if (n) go([cur, n]); else if (!moving) nudge(); }
+  if (['KeyS', 'ArrowDown'].includes(k)) { e.preventDefault(); const n = !moving && cur && bestNeighbour(view.yaw + Math.PI, 1.0); if (n) goBack(n); }
+  if (['ArrowLeft', 'ArrowRight', 'Space'].includes(k)) e.preventDefault();
+});
+addEventListener('keyup', (e) => keys.delete(e.code));
+addEventListener('blur', () => keys.clear());
+function goBack(n) {                // step back without turning round: keep facing the same way
+  go([cur, n]);
+  if (moving) moving.keepFacing = true;
+}
+let nudgeT = 0;
+function nudge() { nudgeT = 0.35; hint('Nothing further this way: turn, or pick a place below', 2600); }
+
+// ---------------------------------------------------------------- guided tour: a slow walk through the best views with gentle panning
+const TOUR = ['plaza-entry', 'pool-north', 'pool-south', 'concourse-24', 'bridge-north', 'bridge-mid', 'canopy4', 'canopy3', 'canopy2', 'canopy1', 'canopy0',
+  'trail-100', 'trail-80', 'trail-60', 'trail-40', 'trail-20', 'trail+0', 'trail+20', 'trail+40', 'canopy6', 'canopy7', 'canopy8', 'canopy9'];
+let tour = null;
+function toggleTour() { if (tour) stopTour(); else startTour(); }
+function startTour() {
+  const list = TOUR.map((id) => spots.get(id)).filter((s) => s.ready);
+  if (list.length < 2) { hint('The guided tour starts once more of the panoramas are rendered', 3000); return; }
+  tour = { list, i: Math.max(0, list.indexOf(cur)), dwell: 0, pan: 0 };
+  document.body.classList.add('tour'); $('btn-tour').setAttribute('aria-pressed', 'true'); $('btn-tour').innerHTML = '<svg class="i"><use href="#i-pause"/></svg>';
+}
+function stopTour() {
+  if (!tour) return;
+  tour = null; document.body.classList.remove('tour'); $('btn-tour').setAttribute('aria-pressed', 'false'); $('btn-tour').innerHTML = '<svg class="i"><use href="#i-play"/></svg>';
+}
+function stepTour(dt) {
+  if (!tour || moving) return;
+  tour.dwell += dt;
+  view.yaw += dt * 0.07 * Math.sin(tour.dwell * 0.35 + 0.6);                    // a slow look around while standing
+  view.pitch += (0.02 - view.pitch) * Math.min(1, dt * 0.6);
+  if (tour.dwell < 6.5) return;
+  tour.dwell = 0;
+  const here = tour.list.indexOf(cur), next = tour.list[(here + 1) % tour.list.length];
+  const path = cur && pathTo(cur, next);
+  if (path && path.length > 1) go(path); else show(next, view.yaw);
+}
+
+// ---------------------------------------------------------------- places dock and map
+const AREAS = [['Plaza', 'pool-north'], ['Concourse', 'concourse-24'], ['Sky bridge', 'bridge-mid'], ['Canopy walk', 'canopy3'], ['Valley trail', 'trail+20'],
+  ['Platform', 'platform-24'], ['Stair tower', 'canopy0'], ['Lookout', 'canopy9'], ['Roof', 'roof']];
+for (const [area, id] of AREAS) {
+  const b = document.createElement('button'); b.textContent = area; b.dataset.area = area;
+  const target = () => spots.get(id).ready ? spots.get(id) : live.find((s) => s.area === area);
+  b.disabled = !target();
+  b.title = b.disabled ? 'Still rendering' : `Go to ${area}`;
+  b.addEventListener('click', () => { stopTour(); travelTo(target()); });
+  $('dock').append(b);
+}
+function travelTo(s) {
+  if (!s || !cur || s === cur || moving) return;
+  const path = pathTo(cur, s);
+  if (path && path.length <= 9) go(path);
+  else { const d = s.eye.clone().sub(cur.eye); show(s, Math.atan2(-d.x, -d.z)); }
+}
+function updatePlace() {
+  $('where').textContent = cur ? `· ${cur.label}` : '';
+  for (const b of $('dock').children) b.classList.toggle('here', !!cur && b.dataset.area === cur.area);
+  const here = $('dock').querySelector('.here'); if (here) here.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+}
+const planImg = new Image(); planImg.src = 'plan.jpg'; planImg.onload = () => drawMap();
+const PLAN = { x0: -140, x1: 140, y0: 130, y1: -70 };       // the plan covers Blender x -140..140, y 130..-70
+const mapCanvas = $('map').querySelector('canvas');
+function mapXY(s, W, H, fit) {
+  const u = (s.pos[0] - PLAN.x0) / (PLAN.x1 - PLAN.x0), v = (PLAN.y0 - s.pos[1]) / (PLAN.y0 - PLAN.y1);
+  return [fit.ox + u * fit.w, fit.oy + v * fit.h];
+}
+function mapFit(W, H) { const s = Math.max(W / 280, H / 200); return { w: 280 * s, h: 200 * s, ox: (W - 280 * s) / 2, oy: (H - 200 * s) / 2 }; }
+function drawMap() {
+  const r = mapCanvas.getBoundingClientRect(), pr = Math.min(devicePixelRatio, 2);
+  if (!r.width) return;
+  mapCanvas.width = Math.round(r.width * pr); mapCanvas.height = Math.round(r.height * pr);
+  const g = mapCanvas.getContext('2d'), W = mapCanvas.width, H = mapCanvas.height, fit = mapFit(W, H);
+  g.clearRect(0, 0, W, H);
+  if (planImg.complete && planImg.naturalWidth) { g.globalAlpha = 0.9; g.drawImage(planImg, fit.ox, fit.oy, fit.w, fit.h); g.globalAlpha = 1; }
+  g.fillStyle = 'rgba(8,14,11,0.25)'; g.fillRect(0, 0, W, H);
+  g.lineWidth = 1.5 * pr; g.strokeStyle = 'rgba(243,214,173,0.45)';
+  for (const r2 of plan.routes) {
+    g.beginPath();
+    r2.forEach((id, i) => { const [x, y] = mapXY(spots.get(id), W, H, fit); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+    g.stroke();
+  }
+  for (const s of spots.values()) {
+    const [x, y] = mapXY(s, W, H, fit);
+    g.beginPath(); g.arc(x, y, (s.ready ? 3.2 : 2) * pr, 0, 7);
+    g.fillStyle = s.ready ? '#f3d6ad' : 'rgba(238,242,234,0.35)'; g.fill();
+  }
+  if (cur) {
+    const [x, y] = mapXY(cur, W, H, fit), a = -view.yaw - Math.PI / 2, half = (view.fov * camera.aspect * Math.PI / 180) / 2, R = 26 * pr;
+    // map up is Blender +y (three -z); yaw 0 looks along -z
+    const grd = g.createRadialGradient(x, y, 0, x, y, R); grd.addColorStop(0, 'rgba(217,160,91,0.55)'); grd.addColorStop(1, 'rgba(217,160,91,0)');
+    g.fillStyle = grd; g.beginPath(); g.moveTo(x, y); g.arc(x, y, R, a - Math.min(half, 1.2), a + Math.min(half, 1.2)); g.closePath(); g.fill();
+    g.beginPath(); g.arc(x, y, 5 * pr, 0, 7); g.fillStyle = '#d9a05b'; g.fill(); g.lineWidth = 2 * pr; g.strokeStyle = '#1b1209'; g.stroke();
+  }
+}
+mapCanvas.addEventListener('click', (e) => {
+  const r = mapCanvas.getBoundingClientRect(), pr = mapCanvas.width / r.width, W = mapCanvas.width, H = mapCanvas.height, fit = mapFit(W, H);
+  const x = (e.clientX - r.left) * pr, y = (e.clientY - r.top) * pr;
+  let pick = null, bestD = 18 * pr;
+  for (const s of live) { const [sx, sy] = mapXY(s, W, H, fit), d = Math.hypot(sx - x, sy - y); if (d < bestD) { bestD = d; pick = s; } }
+  if (pick) { stopTour(); travelTo(pick); }
+});
+$('map-size').addEventListener('click', () => {
+  const big = $('map').classList.toggle('big');
+  $('map-size').innerHTML = `<svg class="i" style="width:15px;height:15px"><use href="#i-${big ? 'shrink' : 'grow'}"/></svg>`;
+  $('map-size').setAttribute('aria-label', big ? 'Smaller map' : 'Larger map');
+  setTimeout(drawMap, 460);
+});
+
+// ---------------------------------------------------------------- chrome: help, full screen, hints, memory of the last spot
+function openHelp() { $('help').classList.add('open'); $('help-close').focus(); }
+function closeHelp() { $('help').classList.remove('open'); canvas.focus(); try { localStorage.setItem('evt-help', '1'); } catch (e) { /* storage unavailable */ } }
+$('help-close').addEventListener('click', closeHelp);
+$('btn-help').addEventListener('click', openHelp);
+$('btn-tour').addEventListener('click', toggleTour);
+function toggleFull() { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen?.().catch(() => {}); }
+$('btn-full').addEventListener('click', toggleFull);
+let hintTimer = null;
+function hint(text, ms = 4000) { const h = $('hint'); h.textContent = text; h.classList.add('on'); clearTimeout(hintTimer); hintTimer = setTimeout(() => h.classList.remove('on'), ms); }
+function remember() { try { localStorage.setItem('evt-last', JSON.stringify({ id: cur.id, yaw: +view.yaw.toFixed(3) })); } catch (e) { /* storage unavailable */ } }
+
+// ---------------------------------------------------------------- frame loop
+const clock = new THREE.Timer();
+const invPV = new THREE.Matrix4(), rot = new THREE.Matrix4();
+function frame(now) {
+  requestAnimationFrame(frame);
+  clock.update(now);
+  const dt = Math.min(clock.getDelta(), 0.1) * timeScale;
+  if (!cur) return;
+  frames++;
+  // turning with keys accelerates smoothly; a fling coasts to a stop
+  const turn = (keys.has('ArrowLeft') || keys.has('KeyA') ? 1 : 0) - (keys.has('ArrowRight') || keys.has('KeyD') ? 1 : 0);
+  if (turn) view.vYaw += (turn * 1.6 - view.vYaw) * Math.min(1, dt * 6);
+  if (!drag) {
+    view.yaw += view.vYaw * dt; view.pitch = THREE.MathUtils.clamp(view.pitch + view.vPitch * dt, -1.45, 1.45);
+    const damp = Math.exp(-dt * (turn ? 0 : 4.2)); view.vYaw *= damp; view.vPitch *= Math.exp(-dt * 4.2);
+  }
+  view.fov += (view.targetFov - view.fov) * Math.min(1, dt * 10);
+  stepTour(dt);
+  stepMove(dt);
+  if (!moving) camera.position.copy(cur.eye);
+  if (nudgeT > 0) { nudgeT = Math.max(0, nudgeT - dt); }
+  camera.fov = view.fov; camera.updateProjectionMatrix();
+  camera.rotation.set(view.pitch, view.yaw, 0);
+  camera.updateMatrixWorld();
+  rot.copy(camera.matrixWorldInverse).setPosition(0, 0, 0);
+  invPV.multiplyMatrices(camera.projectionMatrix, rot).invert();
+  renderer.setRenderTarget(null); renderer.clear();
+  if (moving && moving.mb && !moving.busy) {
+    for (const [rt, sc] of [[rtA, sceneA], [rtB, sceneB]]) { renderer.setRenderTarget(rt); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(sc, camera); }
+    renderer.setRenderTarget(null); renderer.setClearColor(0x000000, 1);
+    blendMat.uniforms.uInvPV.value.copy(invPV);
+    renderer.render(blendScene, screenCam);
+  } else {
+    if (restMix) { restMix.t = Math.min(1, restMix.t + dt / 0.45); panoMat.uniforms.uMix.value = smooth(0, 1, restMix.t);
+      if (restMix.t >= 1) { panoMat.uniforms.uTex.value = panoMat.uniforms.uTex2.value; panoMat.uniforms.uMix.value = 0; restMix = null; } }
+    panoMat.uniforms.uInvPV.value.copy(invPV);
+    renderer.render(panoScene, screenCam);
+    // rings fade in once you stand still; the one under the pointer glows
+    for (const m of markers) {
+      const want = m.userData.hidden ? 0 : (hover === m.userData.spot ? 1 : 0.62);
+      m.material.opacity += (want - m.material.opacity) * Math.min(1, dt * 7);
+      m.scale.setScalar(m.userData.size * (hover === m.userData.spot ? 1.18 : 1));
+    }
+    renderer.render(markScene, camera);
+  }
+  mapTimer += dt; if (mapTimer > 0.12) { mapTimer = 0; drawMap(); }
+  idleT += dt;
+}
+let mapTimer = 0, timeScale = 1, frames = 0;
+
+// ---------------------------------------------------------------- start
+addEventListener('resize', resize);
+resize();
+if (!live.length) {
+  $('veil-msg').textContent = 'The first panoramas are still rendering. Please check back soon.';
+} else {
+  let start = null, look = null;
+  try { const last = JSON.parse(localStorage.getItem('evt-last') || 'null'); if (last && spots.get(last.id)?.ready) { start = spots.get(last.id); look = last.yaw; } } catch (e) { /* storage unavailable */ }
+  start = start || (spots.get('plaza-entry')?.ready ? spots.get('plaza-entry') : live[0]);
+  if (look === null) look = Math.PI;                             // facing the station from the plaza
+  $('veil-img').style.backgroundImage = `url(pano/${start.id}_thumb.jpg)`; requestAnimationFrame(() => $('veil-img').classList.add('on'));
+  $('veil-bar').style.width = '25%';
+  const t0 = performance.now();
+  await prepare(start);
+  $('veil-bar').style.width = '100%';
+  depthNow = null;
+  await show(start, look);
+  requestAnimationFrame(frame);
+  setTimeout(() => $('veil').classList.add('gone'), Math.max(0, 500 - (performance.now() - t0)));
+  let seen = null; try { seen = localStorage.getItem('evt-help'); } catch (e) { /* storage unavailable */ }
+  if (!seen) setTimeout(openHelp, 900); else hint('Drag to look around · click a ring to walk', 4200);
+}
+// keep the depth of the current spot at hand for the ground cursor
+setInterval(async () => { if (cur && (!depthNow || depthNow.id !== cur.id)) { const s = cur, D = await loadDepth(s); depthNow = { id: s.id, D }; } }, 200);
+window.__tour = { spots, get cur() { return cur; }, get moving() { return !!moving; }, go: (id) => travelTo(spots.get(id)), view, camera, renderer, live, markers,
+  set timeScale(v) { timeScale = v; }, get frames() { return frames; }, get progress() { return moving ? moving.t : null; } };
+</script>
