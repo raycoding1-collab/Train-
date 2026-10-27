@@ -44,6 +44,8 @@ def parse_args():
     ap.add_argument("--sun-az", type=float, help="override sun azimuth (compass degrees)")
     ap.add_argument("--sun-el", type=float, help="override sun elevation (degrees)")
     ap.add_argument("--no-motion-blur", action="store_true")
+    ap.add_argument("--resume", action="store_true",
+                    help="skip stills and panoramas whose output is newer than the .blend (after an interruption)")
     ap.add_argument("--pano", action="store_true",
                     help="render 360-degree equirectangular panoramas at the PANO_* spots (or those named by --cam)")
     args = ap.parse_args(argv)
@@ -89,7 +91,14 @@ def set_image_format(scene, path):
         im.file_format, im.color_depth = "PNG", "8"
 
 
+def done_already(path, args):
+    return args.resume and os.path.exists(path) and os.path.getmtime(path) > os.path.getmtime(args.blend)
+
+
 def render_still(scene, cam, mode, args):
+    if done_already(output_path(args.out, cam, mode), args):
+        print(f"[render] {cam} {mode} already done, skipped", flush=True)
+        return
     ob = bpy.data.objects[cam]
     scene.camera = ob
     scene.frame_set(args.frame or int(ob.get("still_frame", 1)))
@@ -103,6 +112,9 @@ def render_still(scene, cam, mode, args):
 
 def render_pano(scene, spot, mode, args):
     """Equirectangular 360-degree image from an eye-level spot; the image centre faces +x (three.js convention)."""
+    if done_already(output_path(args.out, spot, mode), args):
+        print(f"[pano] {spot} {mode} already done, skipped", flush=True)
+        return
     ob = bpy.data.objects[spot]
     cam_data = bpy.data.cameras.get("PanoCam") or bpy.data.cameras.new("PanoCam")
     cam_data.type, cam_data.panorama_type = "PANO", "EQUIRECTANGULAR"
