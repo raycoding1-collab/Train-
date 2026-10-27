@@ -1746,6 +1746,23 @@ function whoosh(dur, power) {              // rising then falling band of air fo
   g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.5 * power, now + dur * 0.45); g.gain.linearRampToValueAtTime(0, now + dur);
   src.connect(f).connect(g).connect(master); src.start(now, Math.random() * 2); src.stop(now + dur + 0.1);
 }
+// footsteps in rhythm with your pace: hard decks ring higher and shorter than soft forest ground
+let stepPhase = 0;
+function footsteps(dt) {
+  if (!audio || !soundOn || player.fly || !player.onGround || travel || ride || audio.ctx.state !== 'running') { stepPhase = 0.6; return; }
+  const v = Math.hypot(player.vel.x, player.vel.z);
+  if (v < 0.8) { stepPhase = 0.6; return; }
+  stepPhase += dt * v / 1.15;
+  if (stepPhase < 1) return;
+  stepPhase -= 1;
+  const hard = player.pos.y > 12, { ctx, master, noise } = audio, now = ctx.currentTime;
+  const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+  src.buffer = noise; f.type = 'bandpass'; f.Q.value = hard ? 1.6 : 0.8;
+  f.frequency.value = (hard ? 1150 : 480) * (0.88 + Math.random() * 0.24);
+  const vol = (v > 4.5 ? 0.17 : 0.11) * (hard ? 1 : 0.8), len = hard ? 0.09 : 0.16;
+  g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(vol, now + 0.006); g.gain.exponentialRampToValueAtTime(0.001, now + len);
+  src.connect(f).connect(g).connect(master); src.start(now, Math.random() * 3); src.stop(now + len + 0.02);
+}
 const near01 = (d, r) => { const k = Math.max(0, 1 - d / r); return k * k; };
 function updateAudio() {
   if (!audio || !soundOn || audio.ctx.state !== 'running') return;
@@ -1965,13 +1982,21 @@ function applyQuality() {
   applySize();
 }
 
+function placeName() {             // the nearest named place, else whether you are under the roof or out in the forest
+  let best = null, bd = 40;
+  for (const sp of manifest.panos || []) {
+    const d = Math.hypot(sp.pos[0] - player.pos.x, sp.pos[2] - player.pos.z) + Math.abs(sp.pos[1] - EYE - player.pos.y) * 2;
+    if (d < bd) { bd = d; best = sp.label; }
+  }
+  return best || (inPoly(player.pos.x, player.pos.z, manifest.map.roof) ? 'Under the roof' : 'Forest');
+}
 function updateStatus() {
   const clock = $('clock').textContent;
   if (photo) { $('status').textContent = `360° photo · ${photo.label} · ${tod > 0.5 ? 'dusk' : 'afternoon'}`; return; }
   if (ride) { $('status').textContent = `Riding the express · ${clock}`; return; }
   if (!stationReady) return;
   const p = player.pos;
-  $('status').textContent = player.fly ? `Flying · ${Math.max(0, Math.round(p.y + EYE))} m · ${clock}` : `Walking · ${clock}`;
+  $('status').textContent = player.fly ? `Flying · ${Math.max(0, Math.round(p.y + EYE))} m · ${clock}` : `Walking · ${placeName()} · ${clock}`;
 }
 
 // sun rays only when the sun is in or near the view; strongest at golden hour
@@ -2100,6 +2125,7 @@ function frame(now) {
   else { const n = player.fly ? 1 : 4; for (let i = 0; i < n; i++) step(dt / n); }
   updateWildlife(t);
   updateRing(dt);
+  footsteps(dt);
   warpPass.uniforms.uAmt.value = warpAmt; warpPass.enabled = warpAmt > 0.003;
   updateRays();
   const fovT = ride ? 82 : travel ? 72 + 22 * warpAmt : player.fly ? 76 : 70;   // wider lens in flight, a punch during a warp jump
@@ -2126,7 +2152,7 @@ function frame(now) {
     renderer.shadowMap.needsUpdate = true;
     shadowDirty = false;
   }
-  if (helpShownAt && isOpen('help') && (player.travelled > 20 || now - helpShownAt > 20000)) { closeSheets(); helpShownAt = 0; }
+  if (helpShownAt && isOpen('help') && (player.travelled > 25 || now - helpShownAt > 30000)) { closeSheets(); helpShownAt = 0; }
   statusTimer -= dt; if (statusTimer < 0) { statusTimer = 0.25; updateStatus(); }
   mapTimer -= dt; if (mapTimer < 0) { mapTimer = 1 / 20; drawMinimap(); }
   discTimer -= dt; if (discTimer < 0) { discTimer = 0.25; checkDiscoveries(); }
