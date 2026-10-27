@@ -630,6 +630,8 @@ for (const sk of [sky, envSky]) {   // a gentler sun disc: the stock one is so b
 const pmrem = new THREE.PMREMGenerator(renderer);
 let envRT = null;
 const sun = new THREE.DirectionalLight(0xffffff, 3);
+const moonFill = new THREE.HemisphereLight(0x8ea8e0, 0x18221a, 0);   // moonlight scattered by the glass roof and the sky: shapes stay readable at night
+scene.add(moonFill);
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 900;
 sun.shadow.camera.left = -150; sun.shadow.camera.right = 150; sun.shadow.camera.top = 150; sun.shadow.camera.bottom = -150;
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06;
@@ -1271,6 +1273,7 @@ function setTimeOfDay(s, settle = true) {
     if (un.cloudCoverage) un.cloudCoverage.value = mix(A.cloud, B.cloud, u);
   }
   sun.color.lerpColors(A.sun, B.sun, u); sun.intensity = mix(A.sunI, B.sunI, u);
+  moonFill.intensity = 1.0 * smooth(1.0, 1.4, s);
   scene.environmentIntensity = mix(A.env, B.env, u);
   scene.fog.color.lerpColors(A.fog, B.fog, u); scene.fog.density = mix(A.fogD, B.fogD, u);
   renderer.toneMappingExposure = mix(A.exposure, B.exposure, u);
