@@ -332,7 +332,7 @@
       <button data-q="fast">Fast</button><button data-q="balanced">Balanced</button><button data-q="ultra">Ultra</button>
     </div>
     <div class="row"><span>Automatic</span><button id="btn-auto" aria-pressed="true">On</button></div>
-    <p>Automatic picks the highest detail your device can draw smoothly and trims resolution for a moment when the view gets heavy. The renders and 360° photos are unaffected.</p>
+    <p>Automatic always draws at your screen's full sharpness and picks the richest detail your device can keep smooth. The renders and 360° photos are unaffected.</p>
     <div class="row data"><span id="perf">– fps</span><span id="perf-res">100% resolution</span></div>
     <h4>Comfort</h4>
     <label class="row"><span>Look speed</span><input id="sens" class="slim" type="range" min="40" max="250" value="100"></label>
@@ -540,9 +540,9 @@ const mediaBase = await window.__evsGallery.media();
 
 // ---------------------------------------------------------------- detail presets (automatic by default; a resolution governor keeps motion smooth)
 const QUALITY = {
-  fast: { hero: 45, pixelRatio: 1.0, minScale: 0.5, shadows: 0, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 3, grass: 100, grassKeep: 3 },
-  balanced: { hero: 60, pixelRatio: 1.25, minScale: 0.55, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 2, grass: 170, grassKeep: 1 },
-  ultra: { msaa: 4, hero: 140, pixelRatio: 2.0, minScale: 0.6, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 2, grass: 300, grassKeep: 1 },
+  fast: { hero: 45, pixelRatio: 1.5, minScale: 0.9, shadows: 1024, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 3, grass: 100, grassKeep: 3 },
+  balanced: { hero: 60, pixelRatio: 1.5, minScale: 0.9, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 2, grass: 170, grassKeep: 1 },
+  ultra: { msaa: 4, hero: 140, pixelRatio: 2.0, minScale: 0.9, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 2, grass: 300, grassKeep: 1 },
 };
 let quality = IS_TOUCH ? 'fast' : 'balanced';
 let auto = true;
@@ -640,12 +640,13 @@ scene.fog = new THREE.FogExp2(0xaec2d8, 0.00038);
 
 let resScale = 1;
 function applySize() {
-  const pr = Math.min(devicePixelRatio, QUALITY[quality].pixelRatio) * resScale;
+  const base = Math.min(devicePixelRatio, QUALITY[quality].pixelRatio);
+  const pr = base * Math.max(0.9, resScale);   // always sharp: a struggling device gets less detail, never a blurry picture
   renderer.setPixelRatio(pr); composer.setPixelRatio(pr);
   const w = appEl.clientWidth || innerWidth, h = appEl.clientHeight || innerHeight;
   renderer.setSize(w, h, false); composer.setSize(w, h);
   camera.aspect = w / h; camera.updateProjectionMatrix();
-  $('perf-res').textContent = `${Math.round(resScale * 100)}% resolution`;
+  $('perf-res').textContent = `${Math.round(100 * pr / base)}% resolution`;
   sizeMinimap();
 }
 addEventListener('resize', applySize);
@@ -901,6 +902,7 @@ function loadStation() {
     const colliderParts = [];
     for (const rec of manifest.meshes) {
       const g = geometry(rec);
+      if (rec.material === 'People') continue;                       // the walk-through is yours alone: no frozen figures
       if (rec.material === 'PoolWater') { addPool(g); continue; }
       if (rec.material === 'StreamWater') {
         const p = g.attributes.position, uv = new Float32Array(p.count * 2);
@@ -1126,12 +1128,13 @@ const panoScene = new THREE.Scene();
 const markers = [];
 let photo = null, photoTexKey = '';
 function buildMarkers() {
-  const map = canvasTexture(128, (ctx, s) => {
+  const map = canvasTexture(256, (ctx, s) => {
     ctx.clearRect(0, 0, s, s);
-    ctx.fillStyle = 'rgba(12,24,19,0.78)'; ctx.beginPath(); ctx.arc(s / 2, s / 2, s / 2 - 6, 0, 6.283); ctx.fill();
-    ctx.strokeStyle = '#d9a05b'; ctx.lineWidth = 6; ctx.stroke();
-    ctx.fillStyle = '#eef2ea'; ctx.font = '600 34px "Instrument Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('360°', s / 2, s / 2 + 2);
+    ctx.fillStyle = 'rgba(10,20,16,0.72)'; ctx.beginPath(); ctx.arc(s / 2, s / 2, s / 2 - 10, 0, 6.283); ctx.fill();
+    ctx.strokeStyle = 'rgba(217,160,91,0.95)'; ctx.lineWidth = 5; ctx.stroke();
+    ctx.strokeStyle = 'rgba(238,242,234,0.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s / 2, s / 2, s / 2 - 22, 0, 6.283); ctx.stroke();
+    ctx.fillStyle = '#eef2ea'; ctx.font = '600 58px "Instrument Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('360°', s / 2, s / 2 + 3);
   });
   const mat = new THREE.SpriteMaterial({ map, depthWrite: false, fog: false });
   for (const spot of manifest.panos || []) {
@@ -1375,7 +1378,7 @@ function stepTravel(dt) {
   warpAmt = travel.power * Math.pow(Math.sin(Math.PI * e), 1.5);
   if (k < 1) return;
   if (travel.power > 0.25 && !travel.fly) arrivalRing();
-  warpAmt = 0; setFly(travel.fly); travel = null; shadowDirty = true;
+  warpAmt = 0; setFly(travel.fly); travel = null; shadowDirty = true; govHold = Math.max(govHold, 3);
   if (helpAfterTravel) { helpAfterTravel = false; maybeHelp(); }
 }
 function goTo(v, instant = false, opts = {}) {
@@ -2113,7 +2116,7 @@ function applyQuality() {
     composer.reset(rt);
     fxaaPass.enabled = !msaaNow;
   }
-  resScale = 1;
+  resScale = 1; govHold = 4;
   gtao.enabled = Q.ao;
   renderer.shadowMap.enabled = Q.shadows > 0;
   sun.castShadow = Q.shadows > 0;
@@ -2235,11 +2238,12 @@ function rememberPlace() {
   try { localStorage.setItem('evs-last', JSON.stringify({ x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3), fly: player.fly, tod: +tod.toFixed(3) })); } catch (e) { /* storage unavailable */ }
 }
 let t = 0, statusTimer = 0, mapTimer = 0, audioTimer = 0, discTimer = 0, eyeY = null, paused = false, framesDrawn = 0, shadowDirty = true;
-let emaDt = 1 / 60, refresh = 1 / 60, govTimer = 0, calm = 0, strained = 0, noUpgrade = false;
+let emaDt = 1 / 60, refresh = 1 / 60, govTimer = 0, calm = 0, strained = 0, noUpgrade = false, govHold = 6;
 const shadowCenter = new THREE.Vector3(1e9, 0, 0);
 function governor(dt) {
   emaDt = emaDt * 0.9 + dt * 0.1;
   refresh = Math.min(refresh * 1.002, Math.max(1 / 240, emaDt));          // estimate of the display's frame interval
+  if (govHold > 0) { govHold -= dt; govTimer = calm = strained = 0; return; }   // settling after loading, a detail change or a jump
   govTimer += dt;
   if (govTimer < 1) return;
   govTimer = 0;
@@ -2254,6 +2258,7 @@ function governor(dt) {
   if (slow && resScale <= Q.minScale + 0.01 && quality !== 'fast') { if (++strained >= 3) { strained = 0; noUpgrade = true; setQuality(quality === 'ultra' ? 'balanced' : 'fast', false); } } else strained = 0;
 }
 function updateWorld(dt, now) {      // everything a frame does before drawing: physics, camera, world animation, interface
+  for (const m of markers) m.scale.setScalar(Math.min(1.1, Math.max(0.25, camera.position.distanceTo(m.position) * 0.08)));   // 360° badges stay small up close
   if (tour) stepTour(dt);
   updateTrains(t);
   if (ride) stepRide();
