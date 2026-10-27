@@ -1231,7 +1231,7 @@ function toggleSheet(id, btn) {
 // ---------------------------------------------------------------- time of day: a continuous blend from afternoon (0) to dusk (1)
 const DAY = { az: 305, el: 36, sun: new THREE.Color(0xfff1de), sunI: 2.6, env: 0.42, turb: 2.6, ray: 1.0, mie: 0.004, g: 0.8, fog: new THREE.Color(0xaec2d8), fogD: 0.00038, exposure: 0.62, cloud: 0.4 };
 const DUSK = { az: 287, el: 2.2, sun: new THREE.Color(0xff8a45), sunI: 1.4, env: 0.3, turb: 6, ray: 2.6, mie: 0.006, g: 0.86, fog: new THREE.Color(0x6e5c69), fogD: 0.0005, exposure: 0.68, cloud: 0.4 };
-const NIGHT = { az: 260, el: -16, sun: new THREE.Color(0xa9bdf0), sunI: 0.7, env: 0.2, turb: 1.5, ray: 0.6, mie: 0.002, g: 0.75, fog: new THREE.Color(0x101a2e), fogD: 0.00032, exposure: 1.55, cloud: 0.12 };
+const NIGHT = { az: 260, el: -16, sun: new THREE.Color(0xa9bdf0), sunI: 0.7, env: 0.3, turb: 1.5, ray: 0.6, mie: 0.002, g: 0.75, fog: new THREE.Color(0x101a2e), fogD: 0.00032, exposure: 2.0, cloud: 0.12 };
 const MOON = new THREE.Vector3(-0.35, 0.82, 0.45).normalize();
 let tod = 0, envTimer = null, todAnim = null;
 const sunDir = new THREE.Vector3(), lightDir = new THREE.Vector3();
@@ -2144,7 +2144,7 @@ const sunScreen = new THREE.Vector3(), camFwd = new THREE.Vector3();
 function updateRays() {
   camera.getWorldDirection(camFwd);
   const facing = camFwd.dot(sunDir), day = 1 - smooth(1.0, 1.08, tod);
-  const amt = smooth(0.05, 0.55, facing) * day * (sunDir.y > -0.02 ? 1 : 0) * (photo ? 0 : 1);
+  const amt = smooth(0.05, 0.55, facing) * day * (sunDir.y > -0.02 ? 1 : 0) * (photo ? 0 : 1) * (1 - smooth(45, 95, camera.position.y));   // high up there is nothing to cast shafts: no veil over the view
   raysPass.enabled = amt > 0.01;
   if (!raysPass.enabled) return;
   sunScreen.copy(camera.position).addScaledVector(sunDir, 1000).project(camera);
