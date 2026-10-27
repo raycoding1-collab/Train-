@@ -542,7 +542,7 @@ const mediaBase = await window.__evsGallery.media();
 const QUALITY = {
   fast: { hero: 45, pixelRatio: 1.0, minScale: 0.5, shadows: 0, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 3, grass: 100, grassKeep: 3 },
   balanced: { hero: 60, pixelRatio: 1.25, minScale: 0.55, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 2, grass: 170, grassKeep: 1 },
-  ultra: { hero: 140, pixelRatio: 2.0, minScale: 0.6, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 2, grass: 300, grassKeep: 1 },
+  ultra: { msaa: 4, hero: 140, pixelRatio: 2.0, minScale: 0.6, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 2, grass: 300, grassKeep: 1 },
 };
 let quality = IS_TOUCH ? 'fast' : 'balanced';
 let auto = true;
@@ -618,7 +618,8 @@ composer.addPass(new ShaderPass({              // final grade toward the Cycles 
       c = mix(vec3(l), c, 1.12); c = (c - 0.5) * 1.07 + 0.5; vec2 d = vUv - 0.5; c *= 1.0 - 0.45 * dot(d, d);
       gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0); }`,
 }));
-composer.addPass(new FXAAPass());
+const fxaaPass = new FXAAPass();
+composer.addPass(fxaaPass);
 
 const sky = new Sky(); sky.scale.setScalar(5000); scene.add(sky);
 const envScene = new THREE.Scene(); const envSky = new Sky(); envSky.scale.setScalar(900); envScene.add(envSky);
@@ -2095,8 +2096,15 @@ function setQuality(q, manual) {
   applyQuality();
   if (stationReady) { buildPlants(); updateCells(true); }
 }
+let msaaNow = 0;
 function applyQuality() {
   const Q = QUALITY[quality];
+  if ((Q.msaa || 0) !== msaaNow) {            // Ultra: true multisampled edges (crisp lattice and leaves) instead of FXAA's softening
+    msaaNow = Q.msaa || 0;
+    const rt = composer.renderTarget1.clone(); rt.samples = msaaNow;
+    composer.reset(rt);
+    fxaaPass.enabled = !msaaNow;
+  }
   resScale = 1;
   gtao.enabled = Q.ao;
   renderer.shadowMap.enabled = Q.shadows > 0;
@@ -2237,23 +2245,7 @@ function governor(dt) {
   if (smoothNow && resScale >= 1 && quality !== 'ultra' && !noUpgrade) { if (++calm >= 4) { calm = 0; setQuality(quality === 'fast' ? 'balanced' : 'ultra', false); } } else calm = 0;
   if (slow && resScale <= Q.minScale + 0.01 && quality !== 'fast') { if (++strained >= 3) { strained = 0; noUpgrade = true; setQuality(quality === 'ultra' ? 'balanced' : 'fast', false); } } else strained = 0;
 }
-function frame(now) {
-  if (!running) return;
-  requestAnimationFrame(frame);
-  timer.update(now);
-  if (paused) return;
-  const dt = Math.min(timer.getDelta(), 0.1);
-  t += dt;
-  if (todAnim) { todAnim.t += dt; const k = Math.min(1, todAnim.t / 2.4); setTimeOfDay(mix(todAnim.from, todAnim.to, easeInOut(k)), k >= 1); if (k >= 1) todAnim = null; }
-  if (photo) {
-    camera.position.set(0, 0, 0);
-    camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
-    renderer.render(panoScene, camera);
-    audioTimer -= dt; if (audioTimer < 0 && stationReady) { audioTimer = 0.1; updateAudio(); }
-    framesDrawn++;
-    return;
-  }
-  if (!stationReady) return;
+function updateWorld(dt, now) {      // everything a frame does before drawing: physics, camera, world animation, interface
   if (tour) stepTour(dt);
   updateTrains(t);
   if (ride) stepRide();
@@ -2305,6 +2297,25 @@ function frame(now) {
   mapTimer -= dt; if (mapTimer < 0) { mapTimer = 1 / 20; drawMinimap(); }
   discTimer -= dt; if (discTimer < 0) { discTimer = 0.25; checkDiscoveries(); }
   saveTimer -= dt; if (saveTimer < 0) { saveTimer = 4; rememberPlace(); }
+}
+function frame(now) {
+  if (!running) return;
+  requestAnimationFrame(frame);
+  timer.update(now);
+  if (paused) return;
+  const dt = Math.min(timer.getDelta(), 0.1);
+  t += dt;
+  if (todAnim) { todAnim.t += dt; const k = Math.min(1, todAnim.t / 2.4); setTimeOfDay(mix(todAnim.from, todAnim.to, easeInOut(k)), k >= 1); if (k >= 1) todAnim = null; }
+  if (photo) {
+    camera.position.set(0, 0, 0);
+    camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+    renderer.render(panoScene, camera);
+    audioTimer -= dt; if (audioTimer < 0 && stationReady) { audioTimer = 0.1; updateAudio(); }
+    framesDrawn++;
+    return;
+  }
+  if (!stationReady) return;
+  updateWorld(dt, now);
   renderer.info.reset();
   composer.render(dt);
   if (snapRequested) { snapRequested = false; takeSnap(); }      // read the canvas in the same frame it was drawn
@@ -2319,6 +2330,10 @@ window.__evs = {
   get views() { return views; }, get calls() { return renderer.info.render.calls; }, get tris() { return renderer.info.render.triangles; }, get photo() { return photo; }, get quality() { return quality; }, get framesDrawn() { return framesDrawn; },
   pause(on) { paused = on; },
   step60() { if (player.fly) step(1 / 60); else for (let k = 0; k < 4; k++) step(1 / 240); },   // one 60 Hz frame of physics, as the frame loop runs it
+  sim(dt) {                          // one frame of the real update without drawing: what the camera does, for the feel tests
+    t += dt; const t0 = performance.now(); updateWorld(dt, t0);
+    return [camera.position.x, camera.position.y, camera.position.z, camera.rotation.x, camera.rotation.y, camera.rotation.z, performance.now() - t0, camera.fov];
+  },
   advance(sec) { for (let i = 0; i < Math.round(sec * 30); i++) { for (let k = 0; k < 4; k++) step(1 / 120); } },
   syncCamera() { camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z); camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ'); updateCells(true); refreshDynamic(camera.position); dynQueue = []; drawMinimap(); },
 };
