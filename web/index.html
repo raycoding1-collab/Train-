@@ -2127,6 +2127,7 @@ window.__evsGallery.resolve({
 
 // ---------------------------------------------------------------- main loop with a frame-rate governor
 const timer = new THREE.Timer();
+let bobAmp = 0, walkPhase = 0;
 let t = 0, statusTimer = 0, mapTimer = 0, audioTimer = 0, discTimer = 0, eyeY = null, paused = false, framesDrawn = 0, shadowDirty = true;
 let emaDt = 1 / 60, refresh = 1 / 60, govTimer = 0, calm = 0, strained = 0, noUpgrade = false;
 const shadowCenter = new THREE.Vector3(1e9, 0, 0);
@@ -2177,8 +2178,13 @@ function frame(now) {
   if (Math.abs(camera.fov - fovT) > 0.01) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * (travel ? 8 : 3)); camera.updateProjectionMatrix(); }
   const targetY = player.pos.y + EYE;               // steps and kerbs lift the eye smoothly instead of in jumps
   eyeY = (eyeY === null || player.fly || travel || Math.abs(targetY - eyeY) > 0.8) ? targetY : eyeY + (targetY - eyeY) * Math.min(1, dt * 16);
-  camera.position.set(player.pos.x, eyeY, player.pos.z);
-  camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
+  // walking rhythm: a 2 cm dip at each footfall and a hint of side-to-side sway, fading in with speed
+  const walking = player.onGround && !player.fly && !travel && !ride, v = Math.hypot(player.vel.x, player.vel.z);
+  bobAmp += ((walking ? Math.min(1, v / 3) : 0) - bobAmp) * Math.min(1, dt * 6);
+  if (walking && v > 0.3) walkPhase += dt * v / 1.15;
+  const stepP = walkPhase % 1, side = Math.floor(walkPhase) % 2 ? 1 : -1;
+  camera.position.set(player.pos.x, eyeY - 0.022 * bobAmp * (1 - Math.sin(Math.PI * stepP)), player.pos.z);
+  camera.rotation.set(player.pitch, player.yaw, 0.0035 * bobAmp * side * Math.sin(Math.PI * stepP), 'YXZ');
   updateCells();
   if (dynQueue.length) pumpDynamic(camera.position);
   windU.value = t;
@@ -2212,7 +2218,7 @@ function frame(now) {
 applyQuality();
 setTimeOfDay(0);
 window.__evs = {
-  player, goTo: (v) => goTo(v, true), travelTo, setFly, get travel() { return travel; }, checkDiscoveries, found, startTour, raysPass, snap: () => { snapRequested = true; }, startRide, stopRide, get warp() { return warpAmt; }, keys, scene, renderer, camera, composer, panoScene, openPhoto, closePhoto, loadStation, openApp, setTimeOfDay, setQuality,
+  player, goTo: (v) => goTo(v, true), travelTo, setFly, get travel() { return travel; }, checkDiscoveries, found, teleport, startTour, raysPass, snap: () => { snapRequested = true; }, startRide, stopRide, get warp() { return warpAmt; }, keys, scene, renderer, camera, composer, panoScene, openPhoto, closePhoto, loadStation, openApp, setTimeOfDay, setQuality,
   get views() { return views; }, get calls() { return renderer.info.render.calls; }, get tris() { return renderer.info.render.triangles; }, get photo() { return photo; }, get quality() { return quality; }, get framesDrawn() { return framesDrawn; },
   pause(on) { paused = on; },
   advance(sec) { for (let i = 0; i < Math.round(sec * 30); i++) { for (let k = 0; k < 4; k++) step(1 / 120); } },
