@@ -597,11 +597,13 @@ def build_materials():
     co = obj_coord(nt)
     mp = node(nt, "ShaderNodeMapping", {"Vector": co, "Scale": (0.35, 1.0, 1.0)})
     nz = noise_tex(nt, 1.6, 6.0, out(mp))
-    w = node(nt, "ShaderNodeBsdfPrincipled", {"Base Color": (0.55, 0.72, 0.62), "Roughness": 0.02,
+    fine = noise_tex(nt, 7.0, 4.0, out(node(nt, "ShaderNodeMapping", {"Vector": co, "Scale": (0.5, 1.6, 1.0)})))
+    rip = math_node(nt, "ADD", out(nz, "Fac"), math_node(nt, "MULTIPLY", out(fine, "Fac"), 0.35))
+    w = node(nt, "ShaderNodeBsdfPrincipled", {"Base Color": (0.62, 0.78, 0.7), "Roughness": 0.015,
                                               "Transmission Weight": 1.0, "IOR": 1.33})
-    nt.links.new(bump(nt, out(nz, "Fac"), 0.25, 0.1), w.inputs["Normal"])
+    nt.links.new(bump(nt, rip, 0.22, 0.1), w.inputs["Normal"])     # broad swell plus fine flowing ripples
     nt.links.new(out(w), o.inputs["Surface"])
-    vol = node(nt, "ShaderNodeVolumeAbsorption", {"Color": (0.6, 0.8, 0.65), "Density": 0.2})
+    vol = node(nt, "ShaderNodeVolumeAbsorption", {"Color": (0.62, 0.82, 0.68), "Density": 0.09})   # clear: the bed shows
     nt.links.new(out(vol), o.inputs["Volume"])
 
     # terrain: grass / moss / soil / rock by slope + wetness
