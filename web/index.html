@@ -876,6 +876,13 @@ function withAO(name) {             // baked ambient occlusion arrives as vertex
   }
   return aoMats.get(name);
 }
+function poolWall() {               // nobody wades into the reflecting pool: a 1.2 m invisible wall follows its rim
+  const pts = manifest.map.pool, y0 = 13.6, y1 = 15.1, pos = [], idx = [];
+  pts.forEach(([x, z], i) => { pos.push(x, y0, z, x, y1, z); const j = (i + 1) % pts.length; idx.push(i * 2, j * 2, j * 2 + 1, i * 2, j * 2 + 1, i * 2 + 1); });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  return g;
+}
 function loadStation() {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
@@ -904,6 +911,7 @@ function loadStation() {
       if (rec.collide) { const cg = new THREE.BufferGeometry(); cg.setAttribute('position', g.attributes.position); cg.setIndex(g.index); colliderParts.push(cg); }
     }
     $('load-step').textContent = 'Building collision'; await tick();
+    colliderParts.push(poolWall());
     const merged = mergeGeometries(colliderParts, false);
     merged.boundsTree = new MeshBVH(merged);
     collider = new THREE.Mesh(merged);
@@ -1285,7 +1293,7 @@ function setTimeOfDay(s, settle = true) {
 }
 
 // ---------------------------------------------------------------- player: capsule walker with collision, or eased free flight
-const player = { pos: new THREE.Vector3(0, 30, 0), vel: new THREE.Vector3(), fv: new THREE.Vector3(), yaw: 0, pitch: 0, onGround: false, fly: false, travelled: 0 };
+const player = { jumping: false, pos: new THREE.Vector3(0, 30, 0), vel: new THREE.Vector3(), fv: new THREE.Vector3(), yaw: 0, pitch: 0, onGround: false, fly: false, travelled: 0 };
 const EYE = 1.65, RADIUS = 0.32, HEIGHT = 1.78;
 const keys = new Set();
 const touchMove = new THREE.Vector2();
@@ -1411,6 +1419,29 @@ function flyCollide() {
     player.pos.set(flySphere.center.x, flySphere.center.y - EYE, flySphere.center.z);
   }
 }
+const groundN = new THREE.Vector3(0, 1, 0), footRay = new THREE.Ray(new THREE.Vector3(), new THREE.Vector3(0, -1, 0));
+const FOOT = [[0, 0], [0.22, 0], [-0.22, 0], [0, 0.22], [0, -0.22]];
+function stepUp() {                 // curbs and stair risers up to 35 cm: lift onto the step when walking into it
+  const h = Math.hypot(player.vel.x, player.vel.z);
+  if (h < 0.3) return;
+  footRay.origin.set(player.pos.x + player.vel.x / h * (RADIUS + 0.06), player.pos.y + 0.4, player.pos.z + player.vel.z / h * (RADIUS + 0.06));
+  const hit = collider.geometry.boundsTree.raycastFirst(footRay, THREE.DoubleSide);
+  if (!hit) return;
+  const rise = hit.point.y - player.pos.y, n = hit.face.normal;
+  const slope = (RADIUS + 0.06) * Math.sqrt(Math.max(0, 1 - groundN.y * groundN.y)) / groundN.y;   // what the slope itself would rise
+  if (rise - slope > 0.05 && rise < 0.36 && Math.abs(n.y) > 0.8) player.pos.y = hit.point.y + 0.005;
+}
+function probeGround() {             // five rays under the capsule; the highest hit is what you stand on
+  let best = null;
+  for (const [ox, oz] of FOOT) {
+    footRay.origin.set(player.pos.x + ox, player.pos.y + 0.45, player.pos.z + oz);
+    const hit = collider.geometry.boundsTree.raycastFirst(footRay, THREE.DoubleSide);
+    if (hit && hit.distance < 1.05 && (!best || hit.point.y > best.point.y)) best = hit;
+  }
+  if (!best) return null;
+  const n = best.face.normal.clone(); if (n.y < 0) n.negate();
+  return { point: best.point, normal: n };
+}
 function step(dt) {
   vFwd.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
   vRight.set(-vFwd.z, 0, vFwd.x);
@@ -1430,14 +1461,17 @@ function step(dt) {
     flyCollide();
     return;
   }
-  const speed = run ? 7 : 3;
+  const speed = run ? 7 : 3.2;
   vMove.copy(vFwd).multiplyScalar(iz).addScaledVector(vRight, ix);
   if (vMove.lengthSq() > 1) vMove.normalize();
-  const k = Math.min(1, dt * (player.onGround ? 11 : 2.5));
+  const k = Math.min(1, dt * (!player.onGround ? 2.5 : vMove.lengthSq() > 0.01 ? 8.5 : 6.5));   // ease in, glide to a stop
   player.vel.x += (vMove.x * speed - player.vel.x) * k;
   player.vel.z += (vMove.z * speed - player.vel.z) * k;
-  if (player.onGround && (keys.has('Space') || touchUp > 0)) player.vel.y = 4.6;
-  player.vel.y = Math.max(player.vel.y - 9.81 * dt, -40);
+  let jumped = false;
+  if (player.onGround && (keys.has('Space') || touchUp > 0)) { player.vel.y = 4.6; jumped = true; player.jumping = true; }
+  else if (player.onGround) player.vel.y = -(groundN.x * player.vel.x + groundN.z * player.vel.z) / Math.max(0.6, groundN.y);   // follow the surface
+  if (!player.onGround || jumped) player.vel.y = Math.max(player.vel.y - 9.81 * dt, -40);
+  const wasGround = player.onGround, fallSpeed = player.vel.y;
   player.pos.addScaledVector(player.vel, dt);
   player.travelled += Math.hypot(player.vel.x, player.vel.z) * dt;
   seg.start.set(player.pos.x, player.pos.y + RADIUS, player.pos.z);
@@ -1460,8 +1494,19 @@ function step(dt) {
   vDelta.subVectors(vNew, player.pos);
   player.onGround = vDelta.y > Math.abs(dt * player.vel.y * 0.25);
   player.pos.copy(vNew);
-  if (player.onGround) player.vel.y = Math.max(0, player.vel.y);
-  else if (vDelta.lengthSq() > 1e-10) { vDelta.normalize(); player.vel.addScaledVector(vDelta, -vDelta.dot(player.vel)); }
+  // ground probe: the walkable surface under the feet; within reach it holds you to the ground (crests, banks, stairs down)
+  if (player.jumping && player.vel.y <= 0) player.jumping = false;
+  const g = player.jumping ? null : probeGround();
+  if (g && g.normal.y > 0.6) {
+    const rest = g.point.y + RADIUS * (1 / g.normal.y - 1), d = player.pos.y - rest;   // where the round capsule rests on this slope
+    if (d < (wasGround ? 0.55 : 0.06) && d > -0.08) { if (d > 0) player.pos.y = rest; player.onGround = true; groundN.copy(g.normal); }
+    else groundN.set(0, 1, 0);
+  } else groundN.set(0, 1, 0);
+  if (wasGround && !player.jumping && (player.vel.x || player.vel.z)) stepUp();
+  if (player.onGround) {
+    if (!wasGround && fallSpeed < -2.5) landV -= Math.min(0.22, -fallSpeed * 0.028) * 14;   // landing weight
+    player.vel.y = Math.max(0, player.vel.y);
+  } else if (vDelta.lengthSq() > 1e-10) { vDelta.normalize(); player.vel.addScaledVector(vDelta, -vDelta.dot(player.vel)); }
   if (player.pos.y < -60) goTo(views[0], true);
 }
 
@@ -2167,7 +2212,7 @@ window.__evsGallery.resolve({
 
 // ---------------------------------------------------------------- main loop with a frame-rate governor
 const timer = new THREE.Timer();
-let bobAmp = 0, walkPhase = 0, saveTimer = 4;
+let bobAmp = 0, walkPhase = 0, saveTimer = 4, landY = 0, landV = 0, lean = 0, lastYaw = 0;
 function rememberPlace() {
   if (!stationReady || travel || ride || tour || photo) return;
   const p = player.pos;
@@ -2219,7 +2264,8 @@ function frame(now) {
   footsteps(dt);
   warpPass.uniforms.uAmt.value = warpAmt; warpPass.enabled = warpAmt > 0.003;
   updateRays();
-  const F = comfort.fov, fovT = ride ? F + 12 : travel ? F + 2 + 22 * warpAmt : player.fly ? F + 6 : F;   // wider lens in flight, a punch during a warp jump
+  const sprinting = !player.fly && player.onGround && Math.hypot(player.vel.x, player.vel.z) > 4.5;
+  const F = comfort.fov, fovT = ride ? F + 12 : travel ? F + 2 + 22 * warpAmt : player.fly ? F + 6 : sprinting ? F + 6 : F;   // wider lens in flight, a punch during a warp jump
   if (Math.abs(camera.fov - fovT) > 0.01) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * (travel ? 8 : 3)); camera.updateProjectionMatrix(); }
   const targetY = player.pos.y + EYE;               // steps and kerbs lift the eye smoothly instead of in jumps
   eyeY = (eyeY === null || player.fly || travel || Math.abs(targetY - eyeY) > 0.8) ? targetY : eyeY + (targetY - eyeY) * Math.min(1, dt * 16);
@@ -2228,8 +2274,13 @@ function frame(now) {
   bobAmp += ((walking && comfort.bob ? Math.min(1, v / 3) : 0) - bobAmp) * Math.min(1, dt * 6);
   if (walking && v > 0.3) walkPhase += dt * v / 1.15;
   const stepP = walkPhase % 1, side = Math.floor(walkPhase) % 2 ? 1 : -1;
-  camera.position.set(player.pos.x, eyeY - 0.022 * bobAmp * (1 - Math.sin(Math.PI * stepP)), player.pos.z);
-  camera.rotation.set(player.pitch, player.yaw, 0.0035 * bobAmp * side * Math.sin(Math.PI * stepP), 'YXZ');
+  landV += (-140 * landY - 18 * landV) * dt; landY += landV * dt;           // springy landing dip
+  const lat = player.fly ? 0 : player.vel.x * vRight.x + player.vel.z * vRight.z;
+  let yawRate = (player.yaw - lastYaw) / Math.max(dt, 1e-3); lastYaw = player.yaw;
+  if (Math.abs(yawRate) > 20) yawRate = 0;
+  lean += ((comfort.bob ? -lat * 0.0016 : 0) + (player.fly && !travel && !ride ? Math.max(-0.09, Math.min(0.09, yawRate * 0.03)) : 0) - lean) * Math.min(1, dt * 5);
+  camera.position.set(player.pos.x, eyeY + landY - 0.022 * bobAmp * (1 - Math.sin(Math.PI * stepP)), player.pos.z);
+  camera.rotation.set(player.pitch, player.yaw, lean + 0.0035 * bobAmp * side * Math.sin(Math.PI * stepP), 'YXZ');
   updateCells();
   if (dynQueue.length) pumpDynamic(camera.position);
   windU.value = t;
@@ -2267,6 +2318,7 @@ window.__evs = {
   player, goTo: (v) => goTo(v, true), travelTo, setFly, get travel() { return travel; }, checkDiscoveries, found, teleport, startTour, raysPass, snap: () => { snapRequested = true; }, startRide, stopRide, get warp() { return warpAmt; }, keys, scene, renderer, camera, composer, panoScene, openPhoto, closePhoto, loadStation, openApp, setTimeOfDay, setQuality,
   get views() { return views; }, get calls() { return renderer.info.render.calls; }, get tris() { return renderer.info.render.triangles; }, get photo() { return photo; }, get quality() { return quality; }, get framesDrawn() { return framesDrawn; },
   pause(on) { paused = on; },
+  step60() { if (player.fly) step(1 / 60); else for (let k = 0; k < 4; k++) step(1 / 240); },   // one 60 Hz frame of physics, as the frame loop runs it
   advance(sec) { for (let i = 0; i < Math.round(sec * 30); i++) { for (let k = 0; k < 4; k++) step(1 / 120); } },
   syncCamera() { camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z); camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ'); updateCells(true); refreshDynamic(camera.position); dynQueue = []; drawMinimap(); },
 };
