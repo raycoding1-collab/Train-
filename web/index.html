@@ -1430,7 +1430,11 @@ function stepUp() {                 // curbs and stair risers up to 35 cm: lift 
   if (!hit) return;
   const rise = hit.point.y - player.pos.y, n = hit.face.normal;
   const slope = (RADIUS + 0.06) * Math.sqrt(Math.max(0, 1 - groundN.y * groundN.y)) / groundN.y;   // what the slope itself would rise
-  if (rise - slope > 0.05 && rise < 0.36 && Math.abs(n.y) > 0.8) player.pos.y = hit.point.y + 0.005;
+  if (!(rise - slope > 0.05 && rise < 0.36 && Math.abs(n.y) > 0.8)) return;
+  const top = hit.point.y;                     // a real step has a tread to stand on: check it continues a little further ahead
+  footRay.origin.set(player.pos.x + player.vel.x / h * (RADIUS + 0.3), player.pos.y + 0.4, player.pos.z + player.vel.z / h * (RADIUS + 0.3));
+  const tread = collider.geometry.boundsTree.raycastFirst(footRay, THREE.DoubleSide);
+  if (tread && tread.point.y > top - 0.06) player.pos.y = top + 0.005;
 }
 function probeGround() {             // five rays under the capsule; the highest hit is what you stand on
   let best = null;
