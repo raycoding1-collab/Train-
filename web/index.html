@@ -827,7 +827,8 @@ const PLAIN = { Bark: [0.075, 0.055, 0.04], Rock: [0.2, 0.19, 0.17] };
 // ---------------------------------------------------------------- binary model loading
 const SRGB2LIN = new Float32Array(256).map((_, i) => { const c = i / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); });
 async function fetchBin(name, onBytes) {
-  const res = await fetch(name);
+  let res = await fetch(name);
+  if (!res.ok) res = await fetch(name.replace(/\.bin$/, '.wasm'));     // the published copy uses a binary type the host serves
   if (!res.ok) throw new Error(`${name} could not be loaded (HTTP ${res.status}).`);
   const reader = res.body.getReader();
   const chunks = [];
