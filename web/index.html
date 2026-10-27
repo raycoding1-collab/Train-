@@ -162,6 +162,10 @@
   #settings p { margin: 0; color: var(--ink-dim); font-size: 12.5px; line-height: 1.45; }
   #settings .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
   #settings .seg2 button { flex: 1; justify-content: center; }
+  #settings { max-height: calc(100vh - 90px); overflow-y: auto; }
+  input.slim { -webkit-appearance: none; appearance: none; width: 140px; height: 4px; border-radius: 4px; background: rgba(214, 236, 220, 0.25); margin: 0; cursor: pointer; }
+  input.slim::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--timber); border: 0; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4); }
+  input.slim::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--timber); border: 0; }
   #help { left: 50%; top: 50%; transform: translate(-50%, -46%) scale(0.96); width: min(380px, calc(100vw - 24px)); line-height: 1.6; color: var(--ink-dim); font-size: 13px; }
   #help b { color: var(--ink); font-weight: 600; }
   #help kbd { font: 600 11px var(--font-ui); color: var(--ink); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; }
@@ -327,6 +331,11 @@
     <div class="row"><span>Automatic</span><button id="btn-auto" aria-pressed="true">On</button></div>
     <p>Automatic picks the highest detail your device can draw smoothly and trims resolution for a moment when the view gets heavy. The renders and 360° photos are unaffected.</p>
     <div class="row data"><span id="perf">– fps</span><span id="perf-res">100% resolution</span></div>
+    <h4>Comfort</h4>
+    <label class="row"><span>Look speed</span><input id="sens" class="slim" type="range" min="40" max="250" value="100"></label>
+    <label class="row"><span>Field of view</span><input id="fov" class="slim" type="range" min="55" max="95" value="70"></label>
+    <div class="row"><span>Walking rhythm</span><button id="btn-bob" aria-pressed="true">On</button></div>
+    <div class="row"><span>Invert look up / down</span><button id="btn-invert" aria-pressed="false">Off</button></div>
   </div>
 
   <div id="help" class="sheet glass">
@@ -395,7 +404,7 @@ const STILLS = [
   ['CAM_TrailUp', 'Stair tower', 'The canopy walk ends at a spiral stair down to the trail.', '17 mm · looking up'],
   ['CAM_Fly', 'Approach', 'Arriving along the valley from the east.', '22 mm · 60 m up'],
 ];
-const RENDER_INFO = 'Cycles · 1920 × 1080 · 40 samples + OpenImageDenoise';
+const RENDER_INFO = 'Cycles path tracing · 1920 × 1080 · OpenImageDenoise';
 let mediaBase = '';
 let gMode = 'day';
 const still = (name, mode) => `${mediaBase}renders/${name}_${mode}.jpg`;
@@ -866,6 +875,7 @@ function loadStation() {
   if (loadPromise) return loadPromise;
   loadPromise = (async () => {
     $('loader').hidden = false;
+    $('loader').style.background = `linear-gradient(180deg, rgba(11,20,16,0.78), rgba(11,20,16,0.94)), center / cover no-repeat url(${mediaBase}renders/CAM_Aerial_day.jpg)`;
     const total = Object.values(manifest.files).reduce((a, b) => a + b, 0);
     let got = 0;
     const onBytes = (n) => { got += n; $('bar').style.width = `${Math.min(100, (got / total) * 100).toFixed(1)}%`; $('load-bytes').textContent = `${(got / 1e6).toFixed(1)} / ${(total / 1e6).toFixed(1)} MB`; };
@@ -1303,7 +1313,8 @@ function travelTo(eye, yaw, pitch, fly, dur, arc, warp = true) {
   travel = { from, to: eye.clone(), yaw0: player.yaw, yaw1: player.yaw + dYaw, pitch0: player.pitch, pitch1: pitch, fly, t: 0,
     dur: dur || Math.min(3.4, 1.1 + Math.sqrt(dist) * 0.11), arc: arc ?? Math.min(80, dist * 0.18) };
   travel.arc = Math.min(travel.arc, headroom(from, travel.to));
-  travel.power = warp ? Math.min(1, dist / travel.dur / 90) : 0;
+  if (REDUCED_MOTION) travel.dur = Math.min(travel.dur, 1.2);
+  travel.power = warp && !REDUCED_MOTION ? Math.min(1, dist / travel.dur / 90) : 0;
   player.vel.set(0, 0, 0); player.fv.set(0, 0, 0);
   if (travel.power > 0.25) whoosh(travel.dur, travel.power);
 }
@@ -1500,7 +1511,7 @@ function stepRide() {
   const tr = trains[0].position;
   $('fade').classList.toggle('on', tr.x > 1010);       // dip to dark as the train loops back to the far end of the line
   player.pos.set(tr.x + ride.nose, tr.y + ride.top - EYE, tr.z + ride.cz);
-  warpAmt = 0.07;
+  warpAmt = REDUCED_MOTION ? 0 : 0.07;
 }
 $('ride-btn').addEventListener('click', startRide);
 
@@ -1932,7 +1943,21 @@ canvas.addEventListener('click', (e) => {
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (err) { /* pointer lock not allowed here */ }
 });
 document.addEventListener('pointerlockchange', () => { $('crosshair').hidden = document.pointerLockElement !== canvas; });
-const look = (dx, dy, k) => { player.yaw -= dx * k; player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - dy * k)); };
+const look = (dx, dy, k) => { k *= comfort.sens; player.yaw -= dx * k; player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - dy * k * (comfort.invert ? -1 : 1))); };
+// comfort: look speed, field of view, walking rhythm, inverted look; remembered on this device
+const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const comfort = { sens: 1, fov: 70, bob: !REDUCED_MOTION, invert: false };
+try { Object.assign(comfort, JSON.parse(localStorage.getItem('evs-comfort') || '{}')); } catch (e) { /* storage unavailable */ }
+function syncComfort(save) {
+  $('sens').value = Math.round(comfort.sens * 100); $('fov').value = comfort.fov;
+  for (const [id, on] of [['btn-bob', comfort.bob], ['btn-invert', comfort.invert]]) { $(id).setAttribute('aria-pressed', String(on)); $(id).textContent = on ? 'On' : 'Off'; }
+  if (save) try { localStorage.setItem('evs-comfort', JSON.stringify(comfort)); } catch (e) { /* storage unavailable */ }
+}
+$('sens').addEventListener('input', (e) => { comfort.sens = e.target.value / 100; syncComfort(true); });
+$('fov').addEventListener('input', (e) => { comfort.fov = +e.target.value; syncComfort(true); });
+$('btn-bob').addEventListener('click', () => { comfort.bob = !comfort.bob; syncComfort(true); });
+$('btn-invert').addEventListener('click', () => { comfort.invert = !comfort.invert; syncComfort(true); });
+syncComfort(false);
 document.addEventListener('mousemove', (e) => {
   if (document.pointerLockElement !== canvas || Math.abs(e.movementX) > 250 || Math.abs(e.movementY) > 250) return;   // browsers sometimes report a jump on lock
   look(e.movementX, e.movementY, 0.0022);
@@ -2115,9 +2140,14 @@ window.__evsGallery.resolve({
     openApp(); appEl.classList.remove('photo'); photo = null;
     await loadStation();
     const view = (n) => views.find((v) => v.name === n) || views[0];
-    if (first) {                                     // opening shot: glide down from the aerial view to the plaza
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem('evs-last') || 'null'); } catch (e) { /* storage unavailable */ }
+    if (first && last) {                             // returning visitor: back where you were, at the same time of day
+      setFly(last.fly); player.pos.set(last.x, last.y, last.z); player.yaw = last.yaw; player.pitch = last.pitch;
+      setTimeOfDay(last.tod); shadowDirty = true;
+    } else if (first) {                              // first visit: glide down from the aerial view to the plaza
       goTo(view('CAM_Aerial'), true);
-      goTo(view('CAM_Plaza'), false, { dur: 6.5, arc: 0 });
+      goTo(view('CAM_Plaza'), false, { dur: REDUCED_MOTION ? 2 : 6.5, arc: 0 });
       helpAfterTravel = true;
     }
     canvas.focus();
@@ -2127,7 +2157,12 @@ window.__evsGallery.resolve({
 
 // ---------------------------------------------------------------- main loop with a frame-rate governor
 const timer = new THREE.Timer();
-let bobAmp = 0, walkPhase = 0;
+let bobAmp = 0, walkPhase = 0, saveTimer = 4;
+function rememberPlace() {
+  if (!stationReady || travel || ride || tour || photo) return;
+  const p = player.pos;
+  try { localStorage.setItem('evs-last', JSON.stringify({ x: +p.x.toFixed(2), y: +p.y.toFixed(2), z: +p.z.toFixed(2), yaw: +player.yaw.toFixed(3), pitch: +player.pitch.toFixed(3), fly: player.fly, tod: +tod.toFixed(3) })); } catch (e) { /* storage unavailable */ }
+}
 let t = 0, statusTimer = 0, mapTimer = 0, audioTimer = 0, discTimer = 0, eyeY = null, paused = false, framesDrawn = 0, shadowDirty = true;
 let emaDt = 1 / 60, refresh = 1 / 60, govTimer = 0, calm = 0, strained = 0, noUpgrade = false;
 const shadowCenter = new THREE.Vector3(1e9, 0, 0);
@@ -2174,13 +2209,13 @@ function frame(now) {
   footsteps(dt);
   warpPass.uniforms.uAmt.value = warpAmt; warpPass.enabled = warpAmt > 0.003;
   updateRays();
-  const fovT = ride ? 82 : travel ? 72 + 22 * warpAmt : player.fly ? 76 : 70;   // wider lens in flight, a punch during a warp jump
+  const F = comfort.fov, fovT = ride ? F + 12 : travel ? F + 2 + 22 * warpAmt : player.fly ? F + 6 : F;   // wider lens in flight, a punch during a warp jump
   if (Math.abs(camera.fov - fovT) > 0.01) { camera.fov += (fovT - camera.fov) * Math.min(1, dt * (travel ? 8 : 3)); camera.updateProjectionMatrix(); }
   const targetY = player.pos.y + EYE;               // steps and kerbs lift the eye smoothly instead of in jumps
   eyeY = (eyeY === null || player.fly || travel || Math.abs(targetY - eyeY) > 0.8) ? targetY : eyeY + (targetY - eyeY) * Math.min(1, dt * 16);
   // walking rhythm: a 2 cm dip at each footfall and a hint of side-to-side sway, fading in with speed
   const walking = player.onGround && !player.fly && !travel && !ride, v = Math.hypot(player.vel.x, player.vel.z);
-  bobAmp += ((walking ? Math.min(1, v / 3) : 0) - bobAmp) * Math.min(1, dt * 6);
+  bobAmp += ((walking && comfort.bob ? Math.min(1, v / 3) : 0) - bobAmp) * Math.min(1, dt * 6);
   if (walking && v > 0.3) walkPhase += dt * v / 1.15;
   const stepP = walkPhase % 1, side = Math.floor(walkPhase) % 2 ? 1 : -1;
   camera.position.set(player.pos.x, eyeY - 0.022 * bobAmp * (1 - Math.sin(Math.PI * stepP)), player.pos.z);
@@ -2208,6 +2243,7 @@ function frame(now) {
   statusTimer -= dt; if (statusTimer < 0) { statusTimer = 0.25; updateStatus(); }
   mapTimer -= dt; if (mapTimer < 0) { mapTimer = 1 / 20; drawMinimap(); }
   discTimer -= dt; if (discTimer < 0) { discTimer = 0.25; checkDiscoveries(); }
+  saveTimer -= dt; if (saveTimer < 0) { saveTimer = 4; rememberPlace(); }
   renderer.info.reset();
   composer.render(dt);
   if (snapRequested) { snapRequested = false; takeSnap(); }      // read the canvas in the same frame it was drawn
