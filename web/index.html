@@ -144,6 +144,9 @@
   #snap .btns { display: flex; gap: 8px; }
   #flash { position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.5s ease-out; }
   #flash.on { opacity: 0.55; transition: none; }
+  #lockhint { position: absolute; left: 50%; top: calc(64px + env(safe-area-inset-top, 0px)); transform: translate(-50%, -8px); opacity: 0; padding: 7px 14px; border-radius: 999px; font-size: 13px; color: var(--ink-dim); pointer-events: none; transition: opacity 0.35s, transform 0.5s var(--spring); z-index: 4; }
+  #lockhint.on { opacity: 1; transform: translate(-50%, 0); }
+  #lockhint kbd { font: 600 11px var(--font-ui); color: var(--ink); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; }
   #fade { position: absolute; inset: 0; z-index: 4; background: #0b1410; opacity: 0; pointer-events: none; transition: opacity 0.22s ease; }
   #fade.on { opacity: 1; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -367,6 +370,7 @@
   <div id="flash"></div>
   <div id="toast" class="glass" role="status" aria-live="polite"><small id="toast-k"></small><b id="toast-t"></b><span id="toast-s"></span></div>
   <div id="fade"></div>
+  <div id="lockhint" class="glass" aria-live="polite">Mouse look on · <kbd>Esc</kbd> shows the cursor</div>
   <div id="stick" aria-hidden="true"><i></i></div>
   <div id="vbtns" aria-label="Movement buttons">
     <button id="btn-up" class="glass" aria-label="Jump or rise"><svg class="i"><use href="#i-up"/></svg></button>
@@ -1942,7 +1946,14 @@ canvas.addEventListener('click', (e) => {
   if (IS_TOUCH) return;
   try { const p = canvas.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (err) { /* pointer lock not allowed here */ }
 });
-document.addEventListener('pointerlockchange', () => { $('crosshair').hidden = document.pointerLockElement !== canvas; });
+let lockHintTimer = null;
+document.addEventListener('pointerlockchange', () => {
+  const locked = document.pointerLockElement === canvas;
+  $('crosshair').hidden = !locked;
+  clearTimeout(lockHintTimer);
+  $('lockhint').classList.toggle('on', locked);                 // how to get the cursor back for the panel buttons
+  if (locked) lockHintTimer = setTimeout(() => $('lockhint').classList.remove('on'), 3500);
+});
 const look = (dx, dy, k) => { k *= comfort.sens; player.yaw -= dx * k; player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - dy * k * (comfort.invert ? -1 : 1))); };
 // comfort: look speed, field of view, walking rhythm, inverted look; remembered on this device
 const REDUCED_MOTION = matchMedia('(prefers-reduced-motion: reduce)').matches;
