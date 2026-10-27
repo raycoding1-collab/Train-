@@ -1,5 +1,6 @@
 <meta charset="utf-8">
 <title>Emerald Valley Station</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600&text=%E7%BF%A0%E8%B0%B7%E7%AB%99&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -141,7 +142,6 @@
   #snap img { width: 100%; border-radius: 12px; display: block; max-height: 70vh; object-fit: contain; background: #000; }
   #snap .row { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
   #snap .btns { display: flex; gap: 8px; }
-  .btnlink { font-weight: 600; color: var(--timber-ink); background: var(--timber); border-radius: 999px; padding: 7px 14px; text-decoration: none; }
   #flash { position: absolute; inset: 0; z-index: 5; background: #fff; opacity: 0; pointer-events: none; transition: opacity 0.5s ease-out; }
   #flash.on { opacity: 0.55; transition: none; }
   #fade { position: absolute; inset: 0; z-index: 4; background: #0b1410; opacity: 0; pointer-events: none; transition: opacity 0.22s ease; }
@@ -362,7 +362,7 @@
 
   <div id="snap" class="sheet glass" role="dialog" aria-label="Your photo">
     <img id="snap-img" alt="Photo of the current view">
-    <div class="row"><span class="data" id="snap-info"></span><span class="btns"><a id="snap-save" class="btnlink" download>Save image</a><button id="snap-close">Close</button></span></div>
+    <div class="row"><span class="data" id="snap-info"></span><span class="btns"><button id="snap-close" class="primary">Done</button></span></div>
   </div>
   <div id="flash"></div>
   <div id="toast" class="glass" role="status" aria-live="polite"><small id="toast-k"></small><b id="toast-t"></b><span id="toast-s"></span></div>
@@ -2092,10 +2092,8 @@ function takeSnap() {
     if (snapUrl) URL.revokeObjectURL(snapUrl);
     snapUrl = URL.createObjectURL(blob);
     $('flash').classList.add('on'); requestAnimationFrame(() => requestAnimationFrame(() => $('flash').classList.remove('on')));
-    $('snap-img').src = snapUrl; $('snap-save').href = snapUrl;
-    const name = `emerald-valley-${$('clock').textContent.replace(':', '')}.jpg`;
-    $('snap-save').download = name;
-    $('snap-info').textContent = `${canvas.width} × ${canvas.height} · ${QUALITY_LABEL[quality]} detail · right-click or long-press also saves`;
+    $('snap-img').src = snapUrl;
+    $('snap-info').textContent = `${canvas.width} × ${canvas.height} · ${QUALITY_LABEL[quality]} detail · right-click or long-press the photo to save it`;
     if (document.pointerLockElement) document.exitPointerLock();
     toggleSheet('snap');
   }, 'image/jpeg', 0.95);
