@@ -540,9 +540,9 @@ const mediaBase = await window.__evsGallery.media();
 
 // ---------------------------------------------------------------- detail presets (automatic by default; a resolution governor keeps motion smooth)
 const QUALITY = {
-  fast: { hero: 45, pixelRatio: 1.5, minScale: 0.9, shadows: 1024, ao: false, mirror: 256, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 3, grass: 100, grassKeep: 3 },
-  balanced: { hero: 60, pixelRatio: 1.5, minScale: 0.9, shadows: 2048, ao: false, mirror: 512, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 2, grass: 170, grassKeep: 1 },
-  ultra: { msaa: 4, hero: 140, pixelRatio: 2.0, minScale: 0.9, shadows: 4096, ao: true, mirror: 1024, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 2, grass: 300, grassKeep: 1 },
+  fast: { hero: 45, pixelRatio: 1.5, minScale: 0.9, shadows: 1024, ao: false, mirror: 0.5, nearTree: 140, forest: 650, conifer: 750, under: 110, underKeep: 3, grass: 100, grassKeep: 3 },
+  balanced: { hero: 60, pixelRatio: 1.5, minScale: 0.9, shadows: 2048, ao: false, mirror: 0.6, nearTree: 260, forest: 1300, conifer: 1500, under: 220, underKeep: 2, grass: 170, grassKeep: 1 },
+  ultra: { msaa: 4, hero: 140, pixelRatio: 2.0, minScale: 0.9, shadows: 4096, ao: true, mirror: 0.8, nearTree: 520, forest: 2200, conifer: 2200, under: 420, underKeep: 2, grass: 300, grassKeep: 1 },
 };
 let quality = IS_TOUCH ? 'fast' : 'balanced';
 let auto = true;
@@ -638,13 +638,14 @@ sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06;
 scene.add(sun, sun.target);
 scene.fog = new THREE.FogExp2(0xaec2d8, 0.00038);
 
-let resScale = 1;
+let resScale = 1, poolMirror = null;
 function applySize() {
   const base = Math.min(devicePixelRatio, QUALITY[quality].pixelRatio);
   const pr = base * Math.max(0.9, resScale);   // always sharp: a struggling device gets less detail, never a blurry picture
   renderer.setPixelRatio(pr); composer.setPixelRatio(pr);
   const w = appEl.clientWidth || innerWidth, h = appEl.clientHeight || innerHeight;
   renderer.setSize(w, h, false); composer.setSize(w, h);
+  if (poolMirror) { const k = pr * QUALITY[quality].mirror; poolMirror.getRenderTarget().setSize(Math.round(w * k), Math.round(h * k)); }
   camera.aspect = w / h; camera.updateProjectionMatrix();
   $('perf-res').textContent = `${Math.round(100 * pr / base)}% resolution`;
   sizeMinimap();
@@ -940,15 +941,15 @@ function loadStation() {
   return loadPromise;
 }
 
-// ---------------------------------------------------------------- pool mirror
+// ---------------------------------------------------------------- pool mirror: its texture follows the screen's shape and size, so the reflection is never blocky
 function addPool(g) {
   const p = g.attributes.position, y = p.getY(0);
   const flat = new THREE.BufferGeometry(), arr = new Float32Array(p.count * 3);
   for (let i = 0; i < p.count; i++) { arr[i * 3] = p.getX(i); arr[i * 3 + 1] = -p.getZ(i); }
   flat.setAttribute('position', new THREE.BufferAttribute(arr, 3));
   flat.setIndex(g.index);
-  const size = QUALITY[quality].mirror;
-  const mirror = new Reflector(flat, { textureWidth: size, textureHeight: size, color: 0x7f8c8a, clipBias: 0.003 });
+  const mirror = new Reflector(flat, { textureWidth: 512, textureHeight: 512, color: 0x7f8c8a, clipBias: 0.003 });
+  poolMirror = mirror; applySize();
   mirror.rotation.x = -Math.PI / 2; mirror.position.y = y + 0.005;
   const reflectionCamera = mirror.getReflectionCamera;            // the mirror camera clones ours: keep it to layer 0
   mirror.getReflectionCamera = (cam) => { const rc = reflectionCamera.call(mirror, cam); rc.layers.set(0); return rc; };
@@ -963,9 +964,9 @@ const spriteTex = new THREE.TextureLoader().load('trees.png');
 spriteTex.colorSpace = THREE.SRGBColorSpace; spriteTex.anisotropy = 8;
 function vegMaterial(key) {
   if (!vegMats.has(key)) {
-    const m = VEG.clone(); m.userData.lod = { value: new THREE.Vector2(0, 1e9) }; m.onBeforeCompile = VEG.onBeforeCompile;
-    if (key.endsWith(':far')) m.map = spriteTex;                    // far trees and shrubs are Cycles-rendered impostors
-    if (/^(Forest|Conifers|Understory):far$/.test(key)) m.color.setRGB(0.7, 0.8, 0.58);   // tinted back from the grey light they were rendered in
+    // far trees and shrubs are Cycles-rendered impostors on upright quads: matte, so they never mirror the sky at a glancing angle
+    const m = key.endsWith(':far') ? new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, map: spriteTex, alphaTest: 0.5 }) : VEG.clone();
+    m.userData.lod = { value: new THREE.Vector2(0, 1e9) }; m.onBeforeCompile = VEG.onBeforeCompile;
     vegMats.set(key, m);
   }
   return vegMats.get(key);
@@ -2155,7 +2156,7 @@ function updateRays() {
   if (!raysPass.enabled) return;
   sunScreen.copy(camera.position).addScaledVector(sunDir, 1000).project(camera);
   raysPass.uniforms.uSun.value.set(sunScreen.x * 0.5 + 0.5, sunScreen.y * 0.5 + 0.5);
-  raysPass.uniforms.uAmt.value = amt * mix(0.32, 0.42, smooth(0.3, 0.95, tod));
+  raysPass.uniforms.uAmt.value = amt * mix(0.2, 0.42, smooth(0.3, 0.95, tod));   // a light touch by day, full shafts at golden hour
   raysPass.uniforms.uTint.value.setRGB(1, mix(0.95, 0.72, smooth(0.4, 1, tod)), mix(0.85, 0.5, smooth(0.4, 1, tod)));
   raysPass.uniforms.uLum.value = mix(2.0, 2.6, smooth(0.4, 1, tod));
 }
