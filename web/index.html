@@ -617,7 +617,7 @@ const pmrem = new THREE.PMREMGenerator(renderer);
 let envRT = null;
 const sun = new THREE.DirectionalLight(0xffffff, 3);
 sun.shadow.camera.near = 1; sun.shadow.camera.far = 900;
-sun.shadow.camera.left = -120; sun.shadow.camera.right = 120; sun.shadow.camera.top = 120; sun.shadow.camera.bottom = -120;
+sun.shadow.camera.left = -150; sun.shadow.camera.right = 150; sun.shadow.camera.top = 150; sun.shadow.camera.bottom = -150;
 sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06;
 scene.add(sun, sun.target);
 scene.fog = new THREE.FogExp2(0xaec2d8, 0.00038);
@@ -1001,8 +1001,10 @@ function makeDynamic(c, geo) {
   mesh.count = 0; mesh.frustumCulled = false; mesh.visible = false;
   return { mesh, mats, cols, pos, buckets, box, cap, lo: c.lo, hi: c.hi };
 }
-function refreshDynamic(cp) {
-  for (const d of dyn) {
+let dynQueue = [];
+function pumpDynamic(cp, n = 8) { refreshDynamic(cp, dynQueue.splice(0, n)); }      // a few kinds per frame: no stutter
+function refreshDynamic(cp, list = dyn) {
+  for (const d of list) {
     const r = d.hi * 1.08, rlo = d.lo * 0.92, im = d.mesh.instanceMatrix.array, ic = d.mesh.instanceColor.array;
     let n = 0;
     const bx0 = Math.max(d.box[0], Math.floor((cp.x - r) / BUCKET)), bx1 = Math.min(d.box[1], Math.floor((cp.x + r) / BUCKET));
@@ -1084,7 +1086,7 @@ function updateCells(force = false) {
   const c = camera.position;
   if (!force && c.distanceTo(lastCellUpdate) < 4) return;
   lastCellUpdate.copy(c);
-  refreshDynamic(c);
+  dynQueue = dyn.slice();
   for (const cell of cells) {          // a batch is drawn only if some of its plants can fall inside its distance band
     const dxz = Math.hypot(cell.x - c.x, cell.z - c.z);
     const dMin = Math.hypot(Math.max(0, dxz - cell.r), Math.max(0, c.y - 40)), dMax = Math.hypot(dxz + cell.r, c.y);
@@ -1300,6 +1302,7 @@ function travelTo(eye, yaw, pitch, fly, dur, arc, warp = true) {
   if (dYaw > Math.PI) dYaw -= 2 * Math.PI; else if (dYaw < -Math.PI) dYaw += 2 * Math.PI;
   travel = { from, to: eye.clone(), yaw0: player.yaw, yaw1: player.yaw + dYaw, pitch0: player.pitch, pitch1: pitch, fly, t: 0,
     dur: dur || Math.min(3.4, 1.1 + Math.sqrt(dist) * 0.11), arc: arc ?? Math.min(80, dist * 0.18) };
+  travel.arc = Math.min(travel.arc, headroom(from, travel.to));
   travel.power = warp ? Math.min(1, dist / travel.dur / 90) : 0;
   player.vel.set(0, 0, 0); player.fv.set(0, 0, 0);
   if (travel.power > 0.25) whoosh(travel.dur, travel.power);
@@ -1322,6 +1325,17 @@ function updateRing(dt) {
   const k = (ring.userData.t += dt / 1.3);
   if (k >= 1) { ring.visible = false; return; }
   ring.scale.setScalar(1 + 13 * (1 - Math.pow(1 - k, 3))); ringMat.uniforms.uP.value = k;
+}
+const upRay = new THREE.Ray(new THREE.Vector3(), new THREE.Vector3(0, 1, 0));
+function headroom(a, b) {          // the largest arc that keeps a flight under any roof or deck along its path
+  if (!collider) return Infinity;
+  let lim = Infinity;
+  for (let i = 1; i < 12; i++) {
+    const e = i / 12; upRay.origin.lerpVectors(a, b, e);
+    const hit = collider.geometry.boundsTree.raycastFirst(upRay, THREE.DoubleSide);
+    if (hit && hit.distance < 120) lim = Math.min(lim, Math.max(0, hit.distance - 1.8) / Math.sin(Math.PI * e));
+  }
+  return lim;
 }
 function stepTravel(dt) {
   travel.t += dt;
@@ -1354,6 +1368,33 @@ function teleport(x, z) {
   if (hits.length) travelTo(new THREE.Vector3(x, hits[0] + 0.05 + EYE, z), face, 0, false);
 }
 
+// in flight the eye is a 0.6 m sphere that slides along roofs, decks, columns and the ground instead of passing through
+const FLY_R = 0.6, flySphere = new THREE.Sphere(), flyPt = new THREE.Vector3(), flyN = new THREE.Vector3();
+function flyCollide() {
+  if (!collider) return;
+  flySphere.center.set(player.pos.x, player.pos.y + EYE, player.pos.z); flySphere.radius = FLY_R;
+  for (let it = 0; it < 3; it++) {
+    let pushed = false;
+    collider.geometry.boundsTree.shapecast({
+      intersectsBounds: (b) => b.intersectsSphere(flySphere),
+      intersectsTriangle: (tri) => {
+        tri.closestPointToPoint(flySphere.center, flyPt);
+        const d = flyPt.distanceTo(flySphere.center);
+        if (d >= FLY_R) return false;
+        if (d > 1e-5) flyN.subVectors(flySphere.center, flyPt).divideScalar(d); else tri.getNormal(flyN);
+        flySphere.center.addScaledVector(flyN, FLY_R - d); pushed = true;
+        return false;
+      },
+    });
+    if (!pushed) break;
+  }
+  const dx = flySphere.center.x - player.pos.x, dy = flySphere.center.y - EYE - player.pos.y, dz = flySphere.center.z - player.pos.z;
+  if (dx || dy || dz) {
+    vDelta.set(dx, dy, dz); const n = vDelta.length();
+    if (n > 1e-6) { vDelta.divideScalar(n); player.fv.addScaledVector(vDelta, -Math.min(0, player.fv.dot(vDelta))); }   // keep only the sliding part of the velocity
+    player.pos.set(flySphere.center.x, flySphere.center.y - EYE, flySphere.center.z);
+  }
+}
 function step(dt) {
   vFwd.set(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
   vRight.set(-vFwd.z, 0, vFwd.x);
@@ -1370,6 +1411,7 @@ function step(dt) {
     player.fv.lerp(vMove, Math.min(1, dt * 4.5));
     player.pos.addScaledVector(player.fv, dt);
     player.travelled += player.fv.length() * dt;
+    flyCollide();
     return;
   }
   const speed = run ? 7 : 3;
@@ -1891,7 +1933,10 @@ canvas.addEventListener('click', (e) => {
 });
 document.addEventListener('pointerlockchange', () => { $('crosshair').hidden = document.pointerLockElement !== canvas; });
 const look = (dx, dy, k) => { player.yaw -= dx * k; player.pitch = Math.max(-1.45, Math.min(1.45, player.pitch - dy * k)); };
-document.addEventListener('mousemove', (e) => { if (document.pointerLockElement === canvas) look(e.movementX, e.movementY, 0.0022); });
+document.addEventListener('mousemove', (e) => {
+  if (document.pointerLockElement !== canvas || Math.abs(e.movementX) > 250 || Math.abs(e.movementY) > 250) return;   // browsers sometimes report a jump on lock
+  look(e.movementX, e.movementY, 0.0022);
+});
 const sticks = new Map();
 canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
@@ -2135,6 +2180,7 @@ function frame(now) {
   camera.position.set(player.pos.x, eyeY, player.pos.z);
   camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ');
   updateCells();
+  if (dynQueue.length) pumpDynamic(camera.position);
   windU.value = t;
   sky.material.uniforms.time.value = t;            // clouds drift
   if (stars.visible) { stars.position.copy(camera.position); starMat.uniforms.uPR.value = renderer.getPixelRatio(); }
@@ -2144,7 +2190,7 @@ function frame(now) {
   fireflies.visible = ffA > 0.01;
   if (fireflies.visible) { ffMat.uniforms.uTime.value = t; ffMat.uniforms.uAlpha.value = ffA; ffMat.uniforms.uCam.value.copy(camera.position); ffMat.uniforms.uSize.value = 0.09 * renderer.domElement.height / (2 * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))); }
   audioTimer -= dt; if (audioTimer < 0) { audioTimer = 0.1; updateAudio(); }
-  if (sun.castShadow && (shadowDirty || player.pos.distanceTo(shadowCenter) > 12)) {   // shadows are redrawn only after moving
+  if (sun.castShadow && (shadowDirty || player.pos.distanceTo(shadowCenter) > 22)) {   // shadows are redrawn only after moving
     shadowCenter.copy(player.pos);
     sun.position.copy(shadowCenter).addScaledVector(lightDir, 400);
     sun.target.position.copy(shadowCenter);
@@ -2170,6 +2216,6 @@ window.__evs = {
   get views() { return views; }, get calls() { return renderer.info.render.calls; }, get tris() { return renderer.info.render.triangles; }, get photo() { return photo; }, get quality() { return quality; }, get framesDrawn() { return framesDrawn; },
   pause(on) { paused = on; },
   advance(sec) { for (let i = 0; i < Math.round(sec * 30); i++) { for (let k = 0; k < 4; k++) step(1 / 120); } },
-  syncCamera() { camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z); camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ'); updateCells(true); drawMinimap(); },
+  syncCamera() { camera.position.set(player.pos.x, player.pos.y + EYE, player.pos.z); camera.rotation.set(player.pitch, player.yaw, 0, 'YXZ'); updateCells(true); refreshDynamic(camera.position); dynQueue = []; drawMinimap(); },
 };
 </script>
