@@ -710,7 +710,7 @@ const MAT = {
   Soil: std({ color: 0x3b4a1c, roughness: 0.95, map: tex.noise }),
   Gravel: std({ color: 0x9d9280, roughness: 0.95, map: tex.noise }),
   Terrain: std({ vertexColors: true, roughness: 0.92, map: tex.noise, side: THREE.FrontSide }),
-  StreamWater: std({ color: 0x1b3a33, roughness: 0.04, metalness: 0.25, envMapIntensity: 1.3 }),
+  StreamWater: std({ color: 0x0e1f1b, roughness: 0.07, metalness: 0.1, envMapIntensity: 0.55 }),
   Bark: std({ color: 0x4b3a2b, roughness: 0.9 }),
   Leaf: std({ vertexColors: true, roughness: 0.75 }),
   VineLeaf: std({ vertexColors: true, roughness: 0.75 }),
@@ -960,7 +960,8 @@ spriteTex.colorSpace = THREE.SRGBColorSpace; spriteTex.anisotropy = 8;
 function vegMaterial(key) {
   if (!vegMats.has(key)) {
     const m = VEG.clone(); m.userData.lod = { value: new THREE.Vector2(0, 1e9) }; m.onBeforeCompile = VEG.onBeforeCompile;
-    if (key.endsWith(':far')) m.map = spriteTex;                    // far trees are Cycles-rendered impostors
+    if (key.endsWith(':far')) m.map = spriteTex;                    // far trees and shrubs are Cycles-rendered impostors
+    if (/^(Forest|Conifers|Understory):far$/.test(key)) m.color.setRGB(0.7, 0.8, 0.58);   // tinted back from the grey light they were rendered in
     vegMats.set(key, m);
   }
   return vegMats.get(key);
@@ -1230,7 +1231,7 @@ function toggleSheet(id, btn) {
 // ---------------------------------------------------------------- time of day: a continuous blend from afternoon (0) to dusk (1)
 const DAY = { az: 305, el: 36, sun: new THREE.Color(0xfff1de), sunI: 2.6, env: 0.42, turb: 2.6, ray: 1.0, mie: 0.004, g: 0.8, fog: new THREE.Color(0xaec2d8), fogD: 0.00038, exposure: 0.62, cloud: 0.4 };
 const DUSK = { az: 287, el: 2.2, sun: new THREE.Color(0xff8a45), sunI: 1.4, env: 0.3, turb: 6, ray: 2.6, mie: 0.006, g: 0.86, fog: new THREE.Color(0x6e5c69), fogD: 0.0005, exposure: 0.68, cloud: 0.4 };
-const NIGHT = { az: 260, el: -16, sun: new THREE.Color(0xa9bdf0), sunI: 0.55, env: 0.16, turb: 1.5, ray: 0.6, mie: 0.002, g: 0.75, fog: new THREE.Color(0x101a2e), fogD: 0.00032, exposure: 1.55, cloud: 0.12 };
+const NIGHT = { az: 260, el: -16, sun: new THREE.Color(0xa9bdf0), sunI: 0.7, env: 0.2, turb: 1.5, ray: 0.6, mie: 0.002, g: 0.75, fog: new THREE.Color(0x101a2e), fogD: 0.00032, exposure: 1.55, cloud: 0.12 };
 const MOON = new THREE.Vector3(-0.35, 0.82, 0.45).normalize();
 let tod = 0, envTimer = null, todAnim = null;
 const sunDir = new THREE.Vector3(), lightDir = new THREE.Vector3();
