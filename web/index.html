@@ -243,6 +243,7 @@
       <p>A green rail hub over a forest valley: a 216&nbsp;m timber gridshell on branching steel columns, a stream running between two elevated maglev decks, a canopy walk hung from the roof, vine curtains, wildflower roof gardens, solar glazing and a reflecting pool. Every image here is path-traced.</p>
       <div class="actions">
         <button class="primary" id="go-walk"><svg class="i"><use href="#i-cube"/></svg>Walk through in 3D</button>
+        <button id="go-tour"><svg class="i"><use href="#i-pin"/></svg>Photoreal tour</button>
         <button id="go-photo"><svg class="i"><use href="#i-360"/></svg>360° photos</button>
         <button id="go-video"><svg class="i"><use href="#i-play"/></svg>Fly-through video</button>
       </div>
@@ -512,6 +513,7 @@ const mediaPromise = new Promise((r) => { galleryReady = r; });
 const app = () => appPromise;
 window.__evsGallery = { resolve: (a) => appResolve(a), manifest: () => manifestReady, media: () => mediaPromise, panoImg, syncPills };
 $('go-walk').addEventListener('click', () => app().then((a) => a.walk()));
+$('go-tour').addEventListener('click', () => { location.href = '../tour/'; });
 $('go-photo').addEventListener('click', () => app().then((a) => a.photo(manifest && manifest.panos[0] && manifest.panos[0].name)));
 initGallery();
 manifestReady.then(buildPanoCards).catch(() => { $('panos').textContent = 'The 360° photos could not be listed.'; });
