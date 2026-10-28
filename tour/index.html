@@ -100,11 +100,14 @@
   body.tour #map { transform: translateY(8px); }
   body.tour #dock { transform: translate(-50%, 90px); }
   body.tour #tools button:not(#btn-tour) { opacity: 0.35; }
+  @media (min-width: 641px) and (max-width: 1360px) {             /* centred in the room right of the map */
+    #dock { left: calc(50% + 125px); max-width: calc(100vw - 278px); }
+  }
   @media (max-width: 640px) {
-    #map { width: 150px; height: 108px; }
-    #title { max-width: calc(100vw - 150px); }
+    #map { width: 150px; height: 108px; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+    #title { max-width: calc(100vw - 172px); }
     #title .zh { display: none; }
-    #hint { bottom: calc(70px + env(safe-area-inset-bottom, 0px)); white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 32px); }
+    #hint { bottom: auto; top: calc(66px + env(safe-area-inset-top, 0px)); white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 32px); }
     #dock { left: 12px; right: 12px; transform: none; max-width: none; }
     body.tour #dock { transform: translateY(90px); }
   }
@@ -316,6 +319,13 @@ function depthAt(D, dir) {                                  // metres along a di
   const x = Math.min(D.w - 1, Math.max(0, Math.floor(u * D.w))), y = Math.min(D.h - 1, Math.max(0, Math.floor(v * D.h)));
   return 1 / D.inv[y * D.w + x];
 }
+function depthAround(D, dir, r = 2) {                       // the farthest surface within a few pixels: across flat ground far away one pixel spans metres
+  const u = Math.atan2(dir.z, dir.x) / (Math.PI * 2) + 0.5, v = 0.5 - Math.asin(Math.max(-1, Math.min(1, dir.y))) / Math.PI;
+  const x0 = Math.floor(u * D.w), y0 = Math.min(D.h - 1, Math.max(0, Math.floor(v * D.h)));
+  let lo = Infinity;
+  for (let y = Math.max(0, y0 - r); y <= Math.min(D.h - 1, y0 + r); y++) for (let x = x0 - r; x <= x0 + r; x++) lo = Math.min(lo, D.inv[y * D.w + ((x % D.w) + D.w) % D.w]);
+  return 1 / lo;
+}
 const meshCache = new Map();         // id -> Promise<BufferGeometry>
 function depthMesh(s) {              // a sphere of vertices pushed out to the rendered depth; torn where depth jumps (no rubber sheets)
   if (!meshCache.has(s.id)) {
@@ -355,13 +365,21 @@ const ringTex = (() => {
   g.fillStyle = grd; g.fillRect(0, 0, 256, 256);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.NoColorSpace; return t;
 })();
+const dotTex = (() => {               // the ring's centre: a fixed size on screen, so spots far across the plaza still read
+  const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+  g.shadowColor = 'rgba(0,0,0,0.45)'; g.shadowBlur = 6;
+  g.beginPath(); g.arc(32, 32, 21, 0, 7); g.fillStyle = 'rgba(243,214,173,0.92)'; g.fill();
+  g.shadowBlur = 0; g.lineWidth = 3; g.strokeStyle = 'rgba(255,255,255,0.95)'; g.stroke();
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.NoColorSpace; return t;
+})();
+const DOT = 0.045;                    // sprite scale without size attenuation: a dot about 2% of the view's height
 const markScene = new THREE.Scene();
 const ringGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
 const markers = [];
 const cursorRing = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ map: ringTex, transparent: true, depthTest: false, depthWrite: false, color: 0xffffff, opacity: 0 }));
 cursorRing.renderOrder = 2; markScene.add(cursorRing);
 function placeMarkers() {
-  for (const m of markers) { markScene.remove(m); m.material.dispose(); }
+  for (const m of markers) { markScene.remove(m, m.userData.dot); m.material.dispose(); m.userData.dot.material.dispose(); }
   markers.length = 0;
   if (!cur) return;
   for (const n of neighbours(cur)) {
@@ -370,15 +388,17 @@ function placeMarkers() {
     m.userData.size = THREE.MathUtils.clamp(cur.eye.distanceTo(n.eye) * 0.07, 0.9, 1.8);
     m.scale.setScalar(m.userData.size);
     m.userData.hidden = false;
-    markScene.add(m); markers.push(m);
+    const dot = new THREE.Sprite(new THREE.SpriteMaterial({ map: dotTex, transparent: true, depthTest: false, depthWrite: false, sizeAttenuation: false, opacity: 0 }));
+    dot.position.copy(m.position); dot.scale.setScalar(DOT); dot.renderOrder = 1; m.userData.dot = dot;
+    markScene.add(m, dot); markers.push(m);
   }
   checkVisibility();
 }
-async function checkVisibility() {   // a ring behind a wall stays hidden: compare with the depth the panorama saw in that direction
+async function checkVisibility() {   // a ring behind a wall stays hidden: compare with the depth the panorama saw around that direction
   const D = await loadDepth(cur), d = new THREE.Vector3();
   for (const m of markers) {
     d.copy(m.position).sub(cur.eye); const dist = d.length(); d.normalize();
-    m.userData.hidden = depthAt(D, d) < dist - 1.5;
+    m.userData.hidden = depthAround(D, d) < dist * 0.92 - 1;
   }
 }
 
@@ -401,7 +421,7 @@ async function go(path) {            // path: list of spots starting at the curr
   const legs = path.slice(1);
   moving = { legs, i: 0, t: 0, from: path[0], busy: true };
   hideTip(); cursorRing.material.opacity = 0;
-  for (const m of markers) m.material.opacity = 0;
+  for (const m of markers) m.material.opacity = m.userData.dot.material.opacity = 0;
   try { await Promise.all(path.map((s) => prepare(s))); } catch (e) { moving = null; return; }
   loadTex(fullUrl(legs[legs.length - 1])).catch(() => {});
   moving.busy = false;
@@ -746,10 +766,13 @@ function frame(now) {
     panoMat.uniforms.uInvPV.value.copy(invPV);
     renderer.render(panoScene, screenCam);
     // rings fade in once you stand still; the one under the pointer glows
+    const dotZoom = Math.tan(view.fov * Math.PI / 360) / Math.tan(36 * Math.PI / 180);
     for (const m of markers) {
-      const want = m.userData.hidden ? 0 : (hover === m.userData.spot ? 1 : 0.62);
+      const on = hover === m.userData.spot, want = m.userData.hidden ? 0 : (on ? 1 : 0.62), dot = m.userData.dot;
       m.material.opacity += (want - m.material.opacity) * Math.min(1, dt * 7);
-      m.scale.setScalar(m.userData.size * (hover === m.userData.spot ? 1.18 : 1));
+      m.scale.setScalar(m.userData.size * (on ? 1.18 : 1));
+      dot.material.opacity = Math.min(1, m.material.opacity * 1.4);
+      dot.scale.setScalar(DOT * dotZoom * (on ? 1.3 : 1));             // the same size on screen while zooming
     }
     renderer.render(markScene, camera);
   }
