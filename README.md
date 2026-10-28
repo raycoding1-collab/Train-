@@ -96,11 +96,29 @@ download needed). **Walk through in 3D** loads the model into the browser (three
   full-resolution mirror pool), weaker ones briefly lower render resolution to stay smooth.
   The renders, video and 360° photos are full quality everywhere.
 
+## Photoreal tour
+`tour/index.html` is a 360° photo tour in which every view is a path-traced Cycles render (6144x3072, day
+light, no people) at one of 44 spots along the plaza, concourse, sky bridge, canopy walk, valley trail,
+platforms, gardens and roof. Moving between spots glides through the scene: each panorama is wrapped on its
+own rendered depth map, so near things slide past far ones as in a real walk.
+```
+blender52/bin/python render_tour.py --pass depth --resume      # depth maps, about a minute each
+blender52/bin/python render_tour.py --pass color --resume      # panoramas, in the order of tour/spots.json
+python3 -m http.server 8000                                     # then open http://localhost:8000/tour/
+```
+- Drag to look, click a ring (or the ground) to walk there, or <kbd>W</kbd>/<kbd>S</kbd> to step forward and back.
+- Places along the bottom and the map glide along the routes; <kbd>P</kbd> starts a guided tour.
+- The viewer only offers spots listed in `tour/ready.json` (written by `tour_assets.py` as each panorama
+  finishes), so it is walkable while the rest are still rendering.
+- Phones load 3072-pixel panoramas; laptops and desktops the full 6144 ones, fetched in the background.
+
 ## Files
 - `build_station.py` - the procedural model (geometry, materials, scatters, trains, cameras, world, compositor)
 - `station_modes.py` - day/dusk lighting presets, shared by the build and render scripts
 - `render.py` - command-line renderer
 - `render_sprites.py` - renders the far-tree impostor atlas (`web/trees.png`) with Cycles
 - `export_web.py` - exports the scene for the web viewer (quantized, gzip-compressed binary meshes and instances)
+- `render_tour.py` - renders the tour's panoramas and depth maps; `tour_assets.py` makes their web sizes
+- `tour/` - the photoreal tour viewer, its spots and routes (`spots.json`), panoramas and depth maps
 - `web/` - the showcase page, exported model and 360° photos (`web/pano/`)
 - `renders/` - finished stills (`<camera>_<mode>.jpg`) and the fly-through
